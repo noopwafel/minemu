@@ -24,16 +24,18 @@ syscall ;\
 pop %r11 ;\
 pop %rcx
 
-# FIXME: these
+# FIXME: not sure this is right
 
 #define DO_SYSCALL_INTR_PRE_SYSCALL \
-syscall
+push %rcx ;\
+push %r11
 
 #define DO_SYSCALL_INTR_SYSCALL \
 syscall
 
 #define DO_SYSCALL_INTR_RESTARTSYS_SYSCALL \
-syscall
+pop %r11 ;\
+pop %rcx
 
 .text
 
@@ -195,22 +197,22 @@ pop %rsi
 pop %rdi
 ret
 
-# FIXME
 .global syscall_intr
 .type syscall_intr, @function
 syscall_intr:
-push %rbp
-movq %rsp, %rbp
-push %rbx
-push %rsi
 push %rdi
-movq 0x10(%rbp),%rax
-movq 0x18(%rbp),%rbx
-movq 0x20(%rbp),%rcx
-movq 0x28(%rbp),%rdx
-movq 0x30(%rbp),%rsi
-movq 0x38(%rbp),%rdi
-movq 0x40(%rbp),%rbp
+push %rsi
+push %rdx
+push %r10
+push %r8
+push %r9
+movq %rdi, %rax
+movq %rsi, %rdi
+movq %rdx, %rsi
+movq %rcx, %rdx
+movq %r8, %r10
+movq %r9, %r8
+movq 0x38(%rsp), %r9
 DO_SYSCALL_INTR_PRE
 .global syscall_intr_critical_start
 syscall_intr_critical_start:
@@ -222,9 +224,11 @@ syscall_intr_critical_end:
 DO_SYSCALL_INTR
 return:
 DO_SYSCALL_INTR_RESTARTSYS
-pop %rdi
+pop %r9
+pop %r8
+pop %r10
+pop %rdx
 pop %rsi
-pop %rbx
-pop %rbp
+pop %rdi
 ret
 
