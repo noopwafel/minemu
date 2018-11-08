@@ -82,7 +82,7 @@ static unsigned long fpstate_size = sizeof(struct _fpstate);
 
 void *get_sigframe_addr(struct kernel_sigaction *action, struct sigcontext *context, long size)
 {
-    unsigned long sp = context->esp;
+    unsigned long sp = context->rsp;
 	thread_ctx_t *local_ctx = get_thread_ctx();
 
 	sp &= ~0x3f; /* 64 byte align */
@@ -100,10 +100,18 @@ void *get_sigframe_addr(struct kernel_sigaction *action, struct sigcontext *cont
 		sp = (unsigned long) local_ctx->altstack.ss_sp + local_ctx->altstack.ss_size;
 
 	/* assert that we restored to the shielded state */
+#ifndef __x86_64__
 	if ((context->ss & 0xffff) != shield_segment)
+#else
+	if ((context->__pad0 & 0xffff) != shield_segment)
+#endif
 		die("wrong user segment");
 
+#ifndef __x86_64__
 	else if ( ((context->ss & 0xffff) != shield_segment) &&
+#else
+	else if ( ((context->__pad0 & 0xffff) != shield_segment) &&
+#endif
 	         !(action->flags & SA_RESTORER) &&
 	          (action->restorer) )
 		sp = (unsigned long) action->restorer;
@@ -190,17 +198,17 @@ static void dump_on_error(int sig, struct sigcontext *context)
 	if ( (sig == SIGSEGV) || (sig == SIGILL) || (sig == SIGFPE) )
 	{
 		sys_read(-1, context->cr2, -1);
-		sys_read(-1, context->eip, -1);
+		sys_read(-1, context->rip, -1);
 
 		if (!get_taint_dump_dir())
 			return;
 
-		long eip = (long)jit_rev_lookup_addr((char *)context->eip, NULL, NULL);
-		if (eip)
-			get_thread_ctx()->user_eip = eip;
+		long rip = (long)jit_rev_lookup_addr((char *)context->rip, NULL, NULL);
+		if (rip)
+			get_thread_ctx()->user_rip = rip;
 
-		long regs[] = { context->eax, context->ecx, context->edx, context->ebx,
-		                context->esp, context->ebp, context->esi, context->edi, };
+		long regs[] = { context->rax, context->rcx, context->rdx, context->rbx,
+		                context->rsp, context->rbp, context->rsi, context->rdi, };
 		do_taint_dump(regs);
 		if (sig == SIGSEGV)
 			asm("movl $0, 0"::);
@@ -238,7 +246,7 @@ static void sigwrap_handler(int sig, siginfo_t *info, void *_)
 	dump_on_error(sig, context);
 
 	/* original code address */
-	context->eip = (long)finish_instruction(context);
+	context->rip = (long)finish_instruction(context);
 
 	/* Most evil hack ever! We 'deliver' the user's signal by modifying our own sigframe
 	 * to match the user process' state at signal delivery, and call sigreturn.
@@ -248,9 +256,9 @@ static void sigwrap_handler(int sig, siginfo_t *info, void *_)
 		sigmask = &rt_sigframe->uc.uc_sigmask.bitmask[0];
 		extramask = &rt_sigframe->uc.uc_sigmask.bitmask[1];
 		rt_sigframe = copy_rt_sigframe_to_user(rt_sigframe, &action);
-		context->esp = (long)rt_sigframe;
-		context->ecx = (long)&rt_sigframe->uc;
-		context->edx = (long)&rt_sigframe->info;
+		context->rsp = (long)rt_sigframe;
+		context->rcx = (long)&rt_sigframe->uc;
+		context->rdx = (long)&rt_sigframe->info;
 		*return_stackp = (long)do_rt_sigreturn;
 	}
 	else
@@ -258,21 +266,26 @@ static void sigwrap_handler(int sig, siginfo_t *info, void *_)
 		sigmask = &sigframe->sc.oldmask;
 		extramask = &sigframe->extramask[0];
 		sigframe = copy_sigframe_to_user(sigframe, &action);
-		context->esp = (long)sigframe;
-		context->ecx = 0;
-		context->edx = 0;
+		context->rsp = (long)sigframe;
+		context->rcx = 0;
+		context->rdx = 0;
 		*return_stackp = (long)do_sigreturn;
 	}
 
 	/* registers */
+#ifndef __x86_64__
 	context->ds =
 	context->es =
 	context->ss = shield_segment;
+#else
+	/* __pad0 contains ss since 2015, but glibc has an older version... */
+	context->__pad0 = shield_segment;
+#endif
 	context->cs = code_segment;
 
-	local_ctx->user_eip = (long)action.handler;   /* jump into jit (or in this case runtime) */
-	context->eip = (long)state_restore;           /* code, not user code                     */
-	context->eax = sig;
+	local_ctx->user_rip = (long)action.handler;   /* jump into jit (or in this case runtime) */
+	context->rip = (long)state_restore;           /* code, not user code                     */
+	context->rax = sig;
 
 	/* signal state */
 	*sigmask   |= action.mask.bitmask[0];
@@ -292,13 +305,13 @@ void user_sigreturn(void)
 {
 	thread_ctx_t *local_ctx = get_thread_ctx();
 
-	long *esp = (long *)local_ctx->user_esp;
-	struct kernel_sigframe *sigframe = (struct kernel_sigframe *)&esp[-2];
+	long *rsp = (long *)local_ctx->user_rsp;
+	struct kernel_sigframe *sigframe = (struct kernel_sigframe *)&rsp[-2];
 	struct kernel_sigframe frame = *sigframe;
 	struct sigcontext *context = &frame.sc;
 	
-	local_ctx->user_eip = context->eip;            /* jump into jit code, */
-	context->eip = (long)state_restore;            /* not user code       */
+	local_ctx->user_rip = context->rip;            /* jump into jit code, */
+	context->rip = (long)state_restore;            /* not user code       */
 	load_sigframe(&frame);
 }
 
@@ -306,12 +319,12 @@ void user_rt_sigreturn(void)
 {
 	thread_ctx_t *local_ctx = get_thread_ctx();
 
-	long *esp = (long *)local_ctx->user_esp;
-	struct kernel_rt_sigframe *rt_sigframe = (struct kernel_rt_sigframe *)&esp[-1];
+	long *rsp = (long *)local_ctx->user_rsp;
+	struct kernel_rt_sigframe *rt_sigframe = (struct kernel_rt_sigframe *)&rsp[-1];
 	struct kernel_rt_sigframe frame = *rt_sigframe;
 	struct sigcontext *context = &frame.uc.uc_mcontext;
-	local_ctx->user_eip = context->eip;            /* jump into jit code, */
-	context->eip = (long)state_restore;            /* not user code       */
+	local_ctx->user_rip = context->rip;            /* jump into jit code, */
+	context->rip = (long)state_restore;            /* not user code       */
 	frame.uc.uc_stack = (stack_t)
 	{
 		.ss_sp = local_ctx->sigwrap_stack,

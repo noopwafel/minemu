@@ -73,8 +73,13 @@ static void shadow_mmap(unsigned long addr, size_t length, long prot, int fd, of
 	if (length == 0)
 		return;
 
+#ifndef __x86_64__
 	ret = sys_mmap2(addr+TAINT_OFFSET, length, no_exec(prot),
 	                MAP_PRIVATE|MAP_FIXED|MAP_ANONYMOUS, -1, 0);
+#else
+	ret = sys_mmap(addr+TAINT_OFFSET, length, no_exec(prot),
+	                MAP_PRIVATE|MAP_FIXED|MAP_ANONYMOUS, -1, 0);
+#endif
 
 	if (ret & PG_MASK)
 		die("shadow_m{,un}map(): %08x\n", ret);
@@ -82,7 +87,11 @@ static void shadow_mmap(unsigned long addr, size_t length, long prot, int fd, of
 	if ( (prot & PROT_EXEC) && !(prot & PROT_WRITE) )
 	{
 		struct kernel_stat64 s;
+#ifndef __x86_64__
 		if ( (fd < 0) || (sys_fstat64(fd, &s) != 0) )
+#else
+		if ( (fd < 0) || (sys_fstat(fd, &s) != 0) )
+#endif
 			memset(&s, 0, sizeof(s));
 
 		add_code_region((char *)addr, PAGE_NEXT(length),
@@ -163,13 +172,13 @@ static void shadow_shmat(unsigned long shmaddr)
 	close_maps(&f);
 }
 
-unsigned long do_mmap2(unsigned long addr, size_t length, int prot,
+unsigned long do_mmap(unsigned long addr, size_t length, int prot,
                        int flags, int fd, off_t pgoffset)
 {
 	if (length == 0)
 		return addr;
 	else
-		return user_mmap2(addr, length, prot, flags, fd, pgoffset);
+		return user_mmap(addr, length, prot, flags, fd, pgoffset);
 }
 
 static unsigned brk_cur = 0, brk_min = 0x10000;
@@ -195,7 +204,7 @@ unsigned long user_brk(unsigned long new_brk)
 		              new_alloc = PAGE_NEXT(new_brk);
 
 		if (new_alloc > old_alloc)
-			user_mmap2(old_alloc, new_alloc-old_alloc,
+			user_mmap(old_alloc, new_alloc-old_alloc,
 			           PROT_READ|PROT_WRITE,
 			           MAP_PRIVATE|MAP_FIXED|MAP_ANONYMOUS,
 			           -1, 0);
@@ -213,11 +222,16 @@ unsigned long user_old_mmap(struct kernel_mmap_args *a)
 	if (a->offset & PG_MASK)
 		return -EINVAL;
 
-	return user_mmap2(a->addr, a->len, a->prot, a->flags, a->fd, a->offset >> PG_SHIFT);
+	return user_mmap(a->addr, a->len, a->prot, a->flags, a->fd, a->offset >> PG_SHIFT);
 }
 
+#ifndef __x86_64__
 unsigned long user_mmap2(unsigned long addr, size_t length, int prot,
                          int flags, int fd, off_t pgoffset)
+#else
+unsigned long user_mmap(unsigned long addr, size_t length, int prot,
+                         int flags, int fd, off_t pgoffset)
+#endif
 {
 	if ( bad_range(addr, length) )
 	{
@@ -229,8 +243,13 @@ unsigned long user_mmap2(unsigned long addr, size_t length, int prot,
 	 * make sure we won't get this memory.
 	 */
 	mutex_lock(&map_lock);
+#ifndef __x86_64__
 	unsigned long ret = sys_mmap2(addr, length, no_exec(prot),
 	                              flags, fd, pgoffset);
+#else
+	unsigned long ret = sys_mmap(addr, length, no_exec(prot),
+	                              flags, fd, pgoffset);
+#endif
 	mutex_unlock(&map_lock);
 
 	if ( !(ret & PG_MASK) )
@@ -289,6 +308,7 @@ unsigned long user_madvise(unsigned long addr, size_t length, long advise)
 	return ret;
 }
 
+#ifndef __x86_64__
 unsigned long user_shmat(int shmid, char *shmaddr, int shmflg, unsigned long *raddr)
 {
 	unsigned long ret = sys_shmat(shmid, shmaddr, shmflg, raddr);
@@ -298,6 +318,7 @@ unsigned long user_shmat(int shmid, char *shmaddr, int shmflg, unsigned long *ra
 
 	return ret;
 }
+#endif
 
 unsigned long user_mremap(unsigned long old_addr, size_t old_size,
                           size_t new_size, long flags, unsigned long new_addr)
@@ -320,7 +341,7 @@ static void copy_vdso(unsigned long addr, unsigned long orig)
 {
 	vdso = addr; vdso_orig = orig;
 
-	long ret = user_mmap2(addr, 0x1000, PROT_READ|PROT_WRITE,
+	long ret = user_mmap(addr, 0x1000, PROT_READ|PROT_WRITE,
 	                      MAP_PRIVATE|MAP_FIXED|MAP_ANONYMOUS, -1, 0);
 
 	if (ret & PG_MASK)
@@ -373,32 +394,32 @@ void init_minemu_mem(long auxv[], char *envp[])
 	 * to set vm.overcommit_memory = 1 in sysctl.conf so this might change
 	 * in the future (I hope so.)
 	 */
-	ret |= sys_mmap2(TAINT_START, PG_SIZE,
+	ret |= sys_mmap(TAINT_START, PG_SIZE,
 	                 PROT_NONE, MAP_PRIVATE|MAP_FIXED|MAP_ANONYMOUS,
 	                 -1, 0);
 
-	ret |= sys_mmap2(TAINT_START+PG_SIZE, TAINT_SIZE-PG_SIZE,
+	ret |= sys_mmap(TAINT_START+PG_SIZE, TAINT_SIZE-PG_SIZE,
 	                 SHADOW_DEFAULT_PROT, MAP_PRIVATE|MAP_FIXED|MAP_ANONYMOUS,
 	                 -1, 0);
 
 	user_mprotect(vdso, 0x1000, PROT_READ|PROT_EXEC);
 
-	ret |= sys_mmap2(JIT_START, JIT_SIZE,
+	ret |= sys_mmap(JIT_START, JIT_SIZE,
 	                 PROT_NONE, MAP_PRIVATE|MAP_FIXED|MAP_ANONYMOUS,
 	                 -1, 0);
 
-	ret |= sys_mmap2(MINEMU_END, PAGE_BASE(c-0x1000)-MINEMU_END,
+	ret |= sys_mmap(MINEMU_END, PAGE_BASE(c-0x1000)-MINEMU_END,
 	                 PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_ANONYMOUS,
 	                 -1, 0);
 
-	ret |= sys_mmap2(MINEMU_END, 0x1000,
+	ret |= sys_mmap(MINEMU_END, 0x1000,
 	                 PROT_NONE, MAP_PRIVATE|MAP_FIXED|MAP_ANONYMOUS,
 	                 -1, 0);
 
 	fill_last_page_hack();
 
 	if ( high_user_addr(stack_top) > stack_top )
-		ret |= sys_mmap2(stack_top, high_user_addr(stack_top)-stack_top,
+		ret |= sys_mmap(stack_top, high_user_addr(stack_top)-stack_top,
 		                 PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_ANONYMOUS,
 		                 -1, 0);
 

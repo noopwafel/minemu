@@ -38,7 +38,7 @@ static void load_sigset(char *sigset_buf)
 
 	kernel_sigset_t mask;
 	((unsigned long *)&mask)[0] = hexread(sigset_buf);
-	((unsigned long *)&mask)[1] = hexread(&sigset_buf[8]);
+	//((unsigned long *)&mask)[1] = hexread(&sigset_buf[8]);
 	get_thread_ctx()->old_sigset = mask;
 }
 
@@ -47,7 +47,7 @@ static void save_sigset(char *sigset_buf)
 	sigset_buf[0] = '\0';
 	kernel_sigset_t mask = get_thread_ctx()->old_sigset;
 	hexcat(sigset_buf,  ((unsigned long *)&mask)[0]);
-	hexcat(sigset_buf,  ((unsigned long *)&mask)[1]);
+	//hexcat(sigset_buf,  ((unsigned long *)&mask)[1]);
 }
 
 void usage(char *arg0)

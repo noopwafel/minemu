@@ -41,16 +41,20 @@ long syscall_emu(long call, long arg1, long arg2, long arg3,
 	switch (call)
 	{
  		case __NR_brk:
+#ifndef __x86_64__
  		case __NR_mmap2:
+#endif
  		case __NR_mmap:
  		case __NR_mremap:
  		case __NR_mprotect:
  		case __NR_madvise:
 
  		case __NR_sigaltstack:
+#ifndef __x86_64__
  		case __NR_signal:
  		case __NR_sigaction:
 		case __NR_sigreturn:
+#endif
  		case __NR_rt_sigaction:
 		case __NR_rt_sigreturn:
 
@@ -71,7 +75,9 @@ long syscall_emu(long call, long arg1, long arg2, long arg3,
 		case __NR_dup2:
 		case __NR_openat:
 		case __NR_pipe:
+#ifndef __x86_64__
 		case __NR_socketcall:
+#endif
 			ret = syscall_intr(call,arg1,arg2,arg3,arg4,arg5,arg6);
 
 			if ( taint_flag == TAINT_ON )
@@ -79,10 +85,12 @@ long syscall_emu(long call, long arg1, long arg2, long arg3,
 
 			return ret;
 
+#ifndef __x86_64__
  		case __NR_ipc:
 			if ( arg1 == SHMAT )
 				break;
 			/* fall through */
+#endif
 		default:
 			return syscall_intr(call,arg1,arg2,arg3,arg4,arg5,arg6);
 	}
@@ -99,12 +107,18 @@ long syscall_emu(long call, long arg1, long arg2, long arg3,
  		case __NR_brk:
 			ret = user_brk(arg1);
 			break;
+#ifndef __x86_64__
  		case __NR_mmap2:
 			ret = user_mmap2(arg1,arg2,arg3,arg4,arg5,arg6);
 			break;
  		case __NR_mmap:
 			ret = user_old_mmap((struct kernel_mmap_args *)arg1);
 			break;
+#else
+ 		case __NR_mmap:
+			ret = user_mmap(arg1,arg2,arg3,arg4,arg5,arg6);
+			break;
+#endif
  		case __NR_mremap:
 			ret = user_mremap(arg1,arg2,arg3,arg4,arg5);
 			break;
@@ -114,16 +128,18 @@ long syscall_emu(long call, long arg1, long arg2, long arg3,
  		case __NR_madvise:
 			ret = user_madvise(arg1,arg2,arg3);
 			break;
+#ifndef __x86_64__
  		case __NR_ipc:
 			if (arg1 == SHMAT)
 				ret = user_shmat(arg2,(char *)arg5,arg3,(unsigned long *)arg4);
 			else
 				die("should not have caught IPC call: %d", arg1);
 			break;
-
+#endif
  		case __NR_sigaltstack:
 			ret = user_sigaltstack((stack_t *)arg1, (stack_t *)arg2);
 			break;
+#ifndef __x86_64__
  		case __NR_signal:
 		{
 			ret = (long)user_signal(arg1, (kernel_sighandler_t)arg2);
@@ -133,13 +149,16 @@ long syscall_emu(long call, long arg1, long arg2, long arg3,
 			ret = user_sigaction(arg1, (struct kernel_old_sigaction *)arg2,
 			                           (struct kernel_old_sigaction *)arg3);
 			break;
+#endif
  		case __NR_rt_sigaction:
 			ret = user_rt_sigaction(arg1, (struct kernel_sigaction *)arg2,
 			                              (struct kernel_sigaction *)arg3, arg4);
 			break;
+#ifndef __x86_64__
  		case __NR_sigreturn:
 			user_sigreturn();
 			break;
+#endif
  		case __NR_rt_sigreturn:
 			user_rt_sigreturn();
 			break;
@@ -164,7 +183,7 @@ long syscall_emu(long call, long arg1, long arg2, long arg3,
 		case __NR_exit_group:
 			if (dump_on_exit)
 			{
-				long regs[] = { call, arg2, arg3, arg1, get_thread_ctx()->user_esp, arg6, arg4, arg5 };
+				long regs[] = { call, arg2, arg3, arg1, get_thread_ctx()->user_rsp, arg6, arg4, arg5 };
 				do_taint_dump(regs);
 			}
 			sys_exit_group(arg1);

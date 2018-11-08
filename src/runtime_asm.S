@@ -29,24 +29,24 @@ runtime_cache_resolution_start:
 .type taint_fault, @function
 taint_fault:
 SHIELDS_DOWN
-movl %ecx, %fs:CTX__IJMP_TAINT
-movl %eax, %fs:CTX__USER_EIP
-mov %esp, %fs:CTX__USER_ESP
-mov %fs:CTX__SCRATCH_STACK_TOP, %esp
+movq %rcx, %fs:CTX__IJMP_TAINT
+movq %rax, %fs:CTX__USER_EIP
+movq %rsp, %fs:CTX__USER_ESP
+movq %fs:CTX__SCRATCH_STACK_TOP, %rsp
 pushf
-test $TAINT_RET_TRAP_INVMASK, %ecx
-pextrd $0, %xmm4, %ecx
-pextrd $0, %xmm3, %eax
-pextrd $0, %xmm5, %edx
-push %edi
-push %esi
-push %ebp
+test $TAINT_RET_TRAP_INVMASK, %rcx
+pextrq $0, %xmm4, %rcx
+pextrq $0, %xmm3, %rax
+pextrq $0, %xmm5, %rdx
+push %rdi
+push %rsi
+push %rbp
 push %fs:CTX__USER_ESP
-push %ebx
-push %edx
-push %ecx
-push %eax
-push %esp           # *(long)regs
+push %rbx
+push %rdx
+push %rcx
+push %rax
+push %rsp           # *(long)regs
 jz return_hook_taint
 call block_signals
 call do_taint_dump
@@ -54,33 +54,33 @@ ud2
 return_hook_taint:
 call block_signals
 call return_hook
-push %eax
+push %rax
 call unblock_signals
-pop %eax
-test %eax,%eax
-lea 4(%esp), %esp
-pop %eax
-pop %ecx
-pop %edx
-pop %ebx
-lea 4(%esp), %esp
-pop %ebp
-pop %esi
-pop %edi
-pinsrd $0, %ecx, %xmm4
-pinsrd $0, %eax, %xmm3
-pinsrd $0, %edx, %xmm5
-movl %fs:CTX__USER_EIP, %eax
-movl $0, %ecx
+pop %rax
+test %rax,%rax
+lea 4(%rsp), %rsp
+pop %rax
+pop %rcx
+pop %rdx
+pop %rbx
+lea 4(%rsp), %rsp
+pop %rbp
+pop %rsi
+pop %rdi
+pinsrq $0, %rcx, %xmm4
+pinsrq $0, %rax, %xmm3
+pinsrq $0, %rdx, %xmm5
+movq %fs:CTX__USER_EIP, %rax
+movq $0, %rcx
 jnz hook_fault
 popf
-mov %fs:CTX__USER_ESP, %esp
+mov %fs:CTX__USER_ESP, %rsp
 SHIELDS_UP
 jmp runtime_ijmp
 
 hook_fault:
 popf
-mov %fs:CTX__USER_ESP, %esp
+mov %fs:CTX__USER_ESP, %rsp
 SHIELDS_UP
 jmp taint_fault
 
@@ -96,10 +96,10 @@ jmp taint_fault
 .type runtime_ret, @function
 
 runtime_ret:
-pinsrd $0, %ecx, %xmm4
-pinsrd $0, %eax, %xmm3
-mov taint_offset(%esp), %ecx
-pop %eax
+pinsrq $0, %rcx, %xmm4
+pinsrq $0, %rax, %xmm3
+mov taint_offset(%rsp), %rcx
+pop %rax
 
 #
 # Status from here: original %eax:         %xmm3[0:31]
@@ -110,24 +110,24 @@ pop %eax
 .global runtime_ijmp
 .type runtime_ijmp, @function
 runtime_ijmp:
-pinsrd $0, %edx, %xmm5
-movzwl %ax, %edx
+pinsrq $0, %rdx, %xmm5
+movzwq %ax, %rdx
 jecxz,pt taint_ok
 jmp taint_fault_short
 taint_ok:
-movl %fs: (, %edx, 8), %ecx         # load mangled cached address
-movl %fs:4(, %edx, 8), %edx
-lea (%ecx,%eax,1), %ecx             # %ecx = addr + CACHE_MANGLE(cached_addr)
+movq %fs: (, %rdx, 8), %rcx         # load mangled cached address
+movq %fs:4(, %rdx, 8), %rdx
+lea (%rcx,%rax,1), %rcx             # %ecx = addr + CACHE_MANGLE(cached_addr)
                                     # %ecx is 1 if there is a cache hit
-movl %edx, %fs:CTX__JIT_EIP
+movq %rdx, %fs:CTX__JIT_EIP
 loop cache_lookup                   # branch taken on cache miss
 
 .global jit_return
 .type jit_return, @function
 jit_return: # thread_ctx->jit_eip contains jump address
-pextrd $0, %xmm4, %ecx
-pextrd $0, %xmm3, %eax
-pextrd $0, %xmm5, %edx
+pextrq $0, %xmm4, %rcx
+pextrq $0, %xmm3, %rax
+pextrq $0, %xmm5, %rdx
 jmp *%fs:offset__jit_eip_HACK   # The Makefile changes this into %fs:offset__jit_eip
                                 # in the normal code. But the code in this file is
                                 # included twice in the binary. The second copy is
@@ -146,43 +146,44 @@ jmp *%fs:offset__jit_eip_HACK   # The Makefile changes this into %fs:offset__jit
 #
 
 cache_lookup:
-mov %eax, %edx
+mov %rax, %rdx
 lahf
-mov %eax, %fs:CTX__FLAGS_TMP
-movzwl %dx, %eax                  # HASH_INDEX[addr]
+mov %rax, %fs:CTX__FLAGS_TMP
+movzwq %dx, %rax                  # HASH_INDEX[addr]
 cache_lookup_loop:
 inc %ax
-mov %fs:(, %eax, 8), %ecx
-lea -1(%ecx,%edx,1), %ecx    # %ecx = addr + CACHE_MANGLE(cached_addr)-1
+mov %fs:(, %rax, 8), %rcx
+lea -1(%rcx,%rdx,1), %rcx    # %ecx = addr + CACHE_MANGLE(cached_addr)-1
 jecxz,pt cache_hit
-testl $-1, %fs:(, %eax, 8)   # jmp_cache.addr[HASH_INDEX[addr]] == 0
+testl $-1, %fs:(, %rax, 8)   # jmp_cache.addr[HASH_INDEX[addr]] == 0
 jz cache_miss
 cmp %dx, %ax
 jne cache_lookup_loop
 jmp cache_miss
 cache_hit:
-mov %fs:4(, %eax, 8), %edx
-mov %fs:CTX__FLAGS_TMP, %eax
+mov %fs:4(, %rax, 8), %rdx
+mov %fs:CTX__FLAGS_TMP, %rax
 sahf
-movl %edx, %fs:CTX__JIT_EIP
+movq %rdx, %fs:CTX__JIT_EIP
 jmp jit_return
 
 .global cpuid_emu
 .type cpuid_emu, @function
 cpuid_emu:
-xchg %eax, %fs:CTX__FLAGS_TMP
+xchg %rax, %fs:CTX__FLAGS_TMP
 lahf
-xchg %eax, %fs:CTX__FLAGS_TMP
+xchg %rax, %fs:CTX__FLAGS_TMP
 cmpl $1, %eax
 cpuid
 jne 1f
 # mask SSE registers in feature set
+# FIXME: this won't fly on 64-bit :)
 andl $(CPUID_FEATURE_INFO_ECX_MASK), %ecx
 andl $(CPUID_FEATURE_INFO_EDX_MASK), %edx
 1:
-xchg %eax, %fs:CTX__FLAGS_TMP
+xchg %rax, %fs:CTX__FLAGS_TMP
 sahf
-xchg %eax, %fs:CTX__FLAGS_TMP
+xchg %rax, %fs:CTX__FLAGS_TMP
 jmp *%fs:offset__jit_eip_HACK                 # see comment above :-)
 
 .global runtime_cache_resolution_end
@@ -197,27 +198,27 @@ nop
 # %e[cd]x: clobbered
 #
 cache_miss:
-mov %fs:CTX__FLAGS_TMP, %eax
+mov %fs:CTX__FLAGS_TMP, %rax
 sahf
 SHIELDS_DOWN
-mov %esp, %fs:CTX__USER_ESP
-mov %fs:CTX__SCRATCH_STACK_TOP, %esp
+mov %rsp, %fs:CTX__USER_ESP
+mov %fs:CTX__SCRATCH_STACK_TOP, %rsp
 pushf
-push %edx            # addr
-push %edx            # addr
+push %rdx            # addr
+push %rdx            # addr
 call jit_lookup_addr # (char *addr);
-lea 4(%esp), %esp
-test %eax, %eax      # jit_addr or NULL
+lea 8(%rsp), %rsp
+test %rax, %rax      # jit_addr or NULL
 jnz lookup_hit
 
 # the code we're looking for has not been translated yet
 call runtime_jit     # (char *addr);
 
 lookup_hit:
-lea 4(%esp), %esp
-movl %eax, %fs:CTX__JIT_EIP
+lea 8(%rsp), %rsp
+movq %rax, %fs:CTX__JIT_EIP
 popf
-pop %esp
+pop %rsp
 SHIELDS_UP
 jmp *%fs:CTX__JIT_RETURN_ADDR
 
@@ -226,24 +227,28 @@ jmp *%fs:CTX__JIT_RETURN_ADDR
 #
 runtime_jit:
 
-push $jit_lock
+push %rax # alyssa
+movabs $jit_lock, %rax
+push %rax
 call mutex_lock
-addl $4, %esp
+addq $8, %rsp
+pop %rax # alyssa
 
-movl 4(%esp), %eax
-movl %esp, %edx                     # switch to jit stack
-movl minemu_stack_bottom, %esp      #
-push %edx
-push %eax                           # address to be translated
+movq 8(%rsp), %rax
+movq %rsp, %rdx                     # switch to jit stack
+movabs $minemu_stack_bottom, %rsp      #
+push %rdx
+push %rax                           # address to be translated
 call jit
-addl $4, %esp
-pop %esp                            # revert to scratch stack
-push %eax
+addq $8, %rsp
+pop %rsp                            # revert to scratch stack
+push %rax
 
-push $jit_lock
+movabs $jit_lock, %rax
+push %rax
 call mutex_unlock
-addl $4, %esp
+addq $8, %rsp
 
-pop %eax
+pop %rax
 ret
 

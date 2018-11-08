@@ -38,8 +38,13 @@ long syscall_emu(long call, long arg1, long arg2, long arg3,
 long syscall_intr(long call, long arg1, long arg2, long arg3,
                              long arg4, long arg5, long arg6);
 
+#ifndef __x86_64__
 #define sys_mmap2(a, b, c, d, e, f) \
 	syscall6(SYS_mmap2, (long)(a), (long)(b), (long)(c), (long)(d), (long)(e), (long)(f))
+#else
+#define sys_mmap(a, b, c, d, e, f) \
+	syscall6(SYS_mmap, (long)(a), (long)(b), (long)(c), (long)(d), (long)(e), (long)(f))
+#endif
 
 #define sys_munmap(a, b) \
 	syscall2(SYS_munmap, (long)(a), (long)(b))
@@ -126,8 +131,13 @@ long syscall_intr(long call, long arg1, long arg2, long arg3,
 #define sys_fork() \
 	syscall2(SYS_clone, SIGCHLD, 0)
 
+#ifndef __x86_64__
 #define sys_fstat64(fd, stat64) \
 	syscall2(SYS_fstat64, (long)fd, (long)stat64)
+#else
+#define sys_fstat(fd, stat64) \
+	syscall2(SYS_fstat, (long)fd, (long)stat64)
+#endif
 
 #define sys_rename(oldpath, newpath) \
 	syscall2(SYS_rename, (long)oldpath, (long)newpath)
@@ -143,5 +153,8 @@ long syscall_intr(long call, long arg1, long arg2, long arg3,
 
 #define sys_readlink(a, b, c) \
 	syscall3(SYS_readlink, (long)(a), (long)(b), (long)(c))
+
+#define sys_arch_prctl(a, b) \
+	syscall2(SYS_arch_prctl, (long)(a), (long)(b))
 
 #endif /* SYSCALLS_H */

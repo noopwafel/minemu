@@ -537,8 +537,8 @@ int generate_hook(char *dest, char *addr, hook_func_t func)
 		"64 C7 05 L & DEADBEEF",     /* movl &dest[len], jit_eip */
 
 		offsetof(thread_ctx_t, hook_func), func,
-		offsetof(thread_ctx_t, user_eip), addr,
-		offsetof(thread_ctx_t, jit_eip), &imm_index
+		offsetof(thread_ctx_t, user_rip), addr,
+		offsetof(thread_ctx_t, jit_rip), &imm_index
 	);
 
 	/* jump into runtime code */
@@ -570,7 +570,7 @@ static int generate_int80(char *dest, instr_t *instr, trans_t *trans)
 		"66 0f ef ed"    /* clear ijmp taint register (pxor %xmm5,%xmm5 */
 		"64 C7 05 L L",     /* movl $post_addr, user_eip */
 
-		offsetof(thread_ctx_t, user_eip), &instr->addr[instr->len]
+		offsetof(thread_ctx_t, user_rip), &instr->addr[instr->len]
 	);
 
 	/* jump into runtime code */
@@ -588,7 +588,7 @@ static int generate_cpuid(char *dest, instr_t *instr, trans_t *trans)
 
 		"64 C7 05 L &DEADBEEF",    /* movl $post_addr, jit_eip */
 
-		offsetof(thread_ctx_t, jit_eip), &retaddr_index
+		offsetof(thread_ctx_t, jit_rip), &retaddr_index
 	);
 
 	/* jump into runtime code */

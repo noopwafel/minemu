@@ -19,17 +19,18 @@
 .global start
 .type start, @function
 start:
-pop  %edx                   # argc -> %edx, argv -> %esp
-lea  4(%esp, %edx, 4), %ebx # envp -> %ebx
-xor  %eax,             %eax
-xor  %ecx,             %ecx
-dec  %ecx
+pop  %rdx                   # argc -> %edx, argv -> %esp
+lea  8(%rsp, %rdx, 8), %rbx # envp -> %ebx
+xor  %rax,             %rax
+xor  %rcx,             %rcx
+dec  %rcx
 cld
-mov  %ebx,             %edi
-repne scas %es:(%edi), %eax # auxv -> %edi
-mov  %esp,             %eax # argv -> %eax
-push %edi                   # push auxv
-push %ebx                   # push envp
-push %eax                   # push argv
-push %edx                   # push argc
+mov  %rbx,             %rdi
+repne scas %es:(%rdi), %rax # auxv -> %edi
+mov  %rsp,             %rax # argv -> %eax
+
+mov %rdi, %rcx # auvx is arg 3
+mov %rdx, %rdi # argc is arg 0
+mov %rax, %rsi # argv is arg 1
+mov %rbx, %rdx # envp is arg 2
 call minemu_main

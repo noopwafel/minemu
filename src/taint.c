@@ -124,7 +124,7 @@ static int taint_val(int fd)
 	if ( fd_type[fd] == FD_UNKNOWN )
 	{
 		struct kernel_stat64 s;
-		if ( ( sys_fstat64(fd, &s) < 0 ) || (s.st_mode & __S_IFMT) != __S_IFREG )
+		if ( ( sys_fstat(fd, &s) < 0 ) || (s.st_mode & __S_IFMT) != __S_IFREG )
 			fd_type[fd] = FD_SOCKET;
 		else
 			fd_type[fd] = FD_FILE;
@@ -251,6 +251,7 @@ void do_taint(long ret, long call, long arg1, long arg2, long arg3, long arg4, l
 			set_fd( ((long *)arg1)[0], FD_SOCKET);
 			set_fd( ((long *)arg1)[1], FD_SOCKET);
 			return;
+#ifndef __x86_64__
 		case __NR_socketcall:
 		{
 			long *sockargs = (long *)arg2;
@@ -281,6 +282,7 @@ void do_taint(long ret, long call, long arg1, long arg2, long arg3, long arg4, l
 					return;
 			}
 		}
+#endif
 		default:
 			return;
 	}

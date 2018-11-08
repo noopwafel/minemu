@@ -18,6 +18,7 @@
  */
 
 #include <asm/ldt.h>
+#include <asm/prctl.h>
 
 #include "segments.h"
 #include "syscalls.h"
@@ -35,8 +36,12 @@ static unsigned int create_segment(int entry_number, void *base_addr, unsigned l
 	struct user_desc seg =
 	{
 		.entry_number = entry_number,
+#ifndef __x86_64__
 		.base_addr = (int)base_addr,
 		.limit = 1 + ( (size-1) & ~0xfff ) / 0x1000,
+#else
+		// TODO: no segmentation on 64-bit
+#endif
 		.seg_32bit = 1,
 		.limit_in_pages = 1,
 	};
@@ -54,15 +59,17 @@ static unsigned int create_segment(int entry_number, void *base_addr, unsigned l
 
 void init_tls(void *base_addr, unsigned long size)
 {
-	set_fs_segment(create_segment(PREF_TLS_GDT_ENTRY, base_addr, size));
+	//set_fs_segment(create_segment(PREF_TLS_GDT_ENTRY, base_addr, size));
+	sys_arch_prctl(ARCH_SET_FS, base_addr);
 }
 
 /* The segment shield that makes emulated code unable to touch emulator memory
  */
 void init_shield(unsigned long size)
 {
+	return; // no segments on amd64
 	shield_segment = create_segment(PREF_SHIELD_GDT_ENTRY, 0x00000000, size);
 	data_segment = code_segment = 0;
-	__asm__ __volatile__ ("mov %%ds, data_segment"::); /* save original data segment */
-	__asm__ __volatile__ ("mov %%cs, code_segment"::); /* save original code segment */
+	__asm__ __volatile__ ("movabs $data_segment, %%rax\nmov %%ds, (%%rax)":::"rax"); /* save original data segment */
+	__asm__ __volatile__ ("movabs $code_segment, %%rax\nmov %%cs, (%%rax)":::"rax"); /* save original code segment */
 }

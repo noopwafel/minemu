@@ -24,21 +24,21 @@
 #
 runtime_syscall:
 pushf
-push %ecx
-push %edx
-push %ebp
-xor %ebp, %ebp
-push %edi
-push %esi
-push %edx
-push %ecx
-push %ebx
-push %eax
+push %rcx
+push %rdx
+push %rbp
+xor %rbp, %rbp
+push %rdi
+push %rsi
+push %rdx
+push %rcx
+push %rbx
+push %rax
 call syscall_emu
-lea 24(%esp), %esp
-pop %ebp
-pop %edx
-pop %ecx
+lea 48(%rsp), %rsp
+pop %rbp
+pop %rdx
+pop %rcx
 popf
 ret
 
@@ -48,17 +48,18 @@ ret
 .global emu_start
 .type emu_start, @function
 emu_start: # (long eip, long esp)
-movl %esp, minemu_stack_bottom   # save orig stack address for runtime_jit()
-movl 4(%esp), %eax               # load user %eip from arg1
-movl 8(%esp), %esp               # load user's stack pointer from arg2
-xor %ecx, %ecx                   # clear registers and flags
-xor %edx, %edx
-xor %ebx, %ebx
-xor %ebp, %ebp
-xor %esi, %esi
-xor %edi, %edi
-pinsrd $0, %ecx, %xmm4
-pinsrd $0, %ecx, %xmm3 # cleared %eax
+movabs $minemu_stack_bottom, %rax
+movq %rsp, (%rax)   # save orig stack address for runtime_jit()
+movq 8(%rsp), %rax               # load user %eip from arg1
+movq 16(%rsp), %rsp               # load user's stack pointer from arg2
+xor %rcx, %rcx                   # clear registers and flags
+xor %rdx, %rdx
+xor %rbx, %rbx
+xor %rbp, %rbp
+xor %rsi, %rsi
+xor %rdi, %rdi
+pinsrq $0, %rcx, %xmm4
+pinsrq $0, %rcx, %xmm3 # cleared %eax
 SHIELDS_UP
 jmp *%fs:CTX__RUNTIME_IJMP_ADDR
 
@@ -66,14 +67,14 @@ jmp *%fs:CTX__RUNTIME_IJMP_ADDR
 .type int80_emu, @function
 int80_emu:
 SHIELDS_DOWN
-mov %esp, %fs:CTX__USER_ESP
-mov %fs:CTX__SCRATCH_STACK_TOP, %esp
+mov %rsp, %fs:CTX__USER_ESP
+mov %fs:CTX__SCRATCH_STACK_TOP, %rsp
 call runtime_syscall
-pop %esp
-pinsrd $0, %ecx, %xmm4
-pinsrd $0, %eax, %xmm3
-mov $0x0,%ecx
-movl %fs:CTX__USER_EIP, %eax
+pop %rsp
+pinsrq $0, %rcx, %xmm4
+pinsrq $0, %rax, %xmm3
+mov $0x0,%rcx
+movq %fs:CTX__USER_EIP, %rax
 SHIELDS_UP
 jmp *%fs:CTX__RUNTIME_IJMP_ADDR
 
@@ -81,15 +82,15 @@ jmp *%fs:CTX__RUNTIME_IJMP_ADDR
 .type linux_sysenter_emu, @function
 linux_sysenter_emu:
 SHIELDS_DOWN
-movl (%esp), %ebp      # restore %ebp, (is used to store %esp during sysenter.)
-mov %esp, %fs:CTX__USER_ESP
-mov %fs:CTX__SCRATCH_STACK_TOP, %esp
+movq (%rsp), %rbp      # restore %ebp, (is used to store %esp during sysenter.)
+mov %rsp, %fs:CTX__USER_ESP
+mov %fs:CTX__SCRATCH_STACK_TOP, %rsp
 call runtime_syscall
-pop %esp
-pinsrd $0, %ecx, %xmm4
-pinsrd $0, %eax, %xmm3
-mov $0x0,%ecx
-movl sysenter_reentry, %eax
+pop %rsp
+pinsrq $0, %rcx, %xmm4
+pinsrq $0, %rax, %xmm3
+mov $0x0,%rcx
+movabs sysenter_reentry, %rax
 SHIELDS_UP
 jmp *%fs:CTX__RUNTIME_IJMP_ADDR
 
@@ -97,10 +98,10 @@ jmp *%fs:CTX__RUNTIME_IJMP_ADDR
 .type state_restore, @function
 state_restore:
 SHIELDS_DOWN
-pinsrd $0, %ecx, %xmm4
-pinsrd $0, %eax, %xmm3
-mov $0x0,%ecx
-movl %fs:CTX__USER_EIP, %eax
+pinsrq $0, %rcx, %xmm4
+pinsrq $0, %rax, %xmm3
+mov $0x0,%rcx
+movq %fs:CTX__USER_EIP, %rax
 SHIELDS_UP
 jmp *%fs:CTX__RUNTIME_IJMP_ADDR
 
@@ -108,43 +109,43 @@ jmp *%fs:CTX__RUNTIME_IJMP_ADDR
 .type hook_stub, @function
 hook_stub:
 SHIELDS_DOWN
-mov %esp, %fs:CTX__USER_ESP
-mov %fs:CTX__SCRATCH_STACK_TOP, %esp
+mov %rsp, %fs:CTX__USER_ESP
+mov %fs:CTX__SCRATCH_STACK_TOP, %rsp
 pushf
-push %edi
-push %esi
-push %ebp
+push %rdi
+push %rsi
+push %rbp
 push %fs:CTX__USER_ESP
-push %ebx
-push %edx
-push %ecx
-push %eax
-push %esp           # *(long)regs
+push %rbx
+push %rdx
+push %rcx
+push %rax
+push %rsp           # *(long)regs
 call *%fs:CTX__HOOK_FUNC
-test %eax, %eax     # non-zero -> abort
-lea 4(%esp), %esp
-pop %eax
-pop %ecx
-pop %edx
-pop %ebx
-lea 4(%esp), %esp
-pop %ebp
-pop %esi
-pop %edi
-pinsrd $0, %ecx, %xmm4
-pinsrd $0, %eax, %xmm3
-pinsrd $0, %edx, %xmm5
+test %rax, %rax     # non-zero -> abort
+lea 8(%rsp), %rsp
+pop %rax
+pop %rcx
+pop %rdx
+pop %rbx
+lea 8(%rsp), %rsp
+pop %rbp
+pop %rsi
+pop %rdi
+pinsrq $0, %rcx, %xmm4
+pinsrq $0, %rax, %xmm3
+pinsrq $0, %rdx, %xmm5
 jnz hook_fault
 popf
-mov %fs:CTX__USER_ESP, %esp
+mov %fs:CTX__USER_ESP, %rsp
 SHIELDS_UP
 jmp *%fs:CTX__JIT_RETURN_ADDR
 
 hook_fault:
-movl %fs:CTX__USER_EIP, %eax
-movl $0, %ecx
+movq %fs:CTX__USER_EIP, %rax
+movq $0, %rcx
 popf
-mov %fs:CTX__USER_ESP, %esp
+mov %fs:CTX__USER_ESP, %rsp
 SHIELDS_UP
 jmp taint_fault
 

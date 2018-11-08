@@ -10,20 +10,21 @@ STRIP=$(SILENT)strip --strip-all
 MKDIR=$(SILENT)mkdir
 RM=$(SILENT)rm -r
 
-LDFLAGS=-m32
-EMU_LDFLAGS=-z noexecstack --warn-common -melf_i386
+#LDFLAGS=-m32
+EMU_LDFLAGS=-z noexecstack --warn-common --no-relax -no-pie #-melf_i386
 
 #SETTINGS=-g 
-SETTINGS=-Os -fno-exceptions -fno-unwind-tables -fno-asynchronous-unwind-tables -Wfloat-equal -Waddress -Wmissing-field-initializers
+#SETTINGS=-Os -fno-exceptions -fno-unwind-tables -fno-asynchronous-unwind-tables -Wfloat-equal -Waddress -Wmissing-field-initializers
+SETTINGS=-O1 -fno-exceptions -fno-unwind-tables -fno-asynchronous-unwind-tables -Wfloat-equal -Waddress -Wmissing-field-initializers
 WARNINGS=-Wno-unused-parameter -Wextra -Wshadow -pedantic -std=gnu99 -fno-stack-protector #-U_FORTIFY_SOURCE
 
-CFLAGS=-MMD -MF .dep/$@.d $(WARNINGS) $(SETTINGS) -m32
+CFLAGS=-MMD -MF .dep/$@.d $(WARNINGS) $(SETTINGS) -g #-m32
 
 #EMU_EXCLUDE=
 EMU_EXCLUDE=src/debug.o
 
-TESTCASES_CFLAGS=-MMD -MF .dep/$@.d -Wall -Wshadow -pedantic -std=gnu99 -m32
-EMU_CFLAGS=$(CFLAGS) -Isrc -ffreestanding
+TESTCASES_CFLAGS=-MMD -MF .dep/$@.d -Wall -Wshadow -pedantic -std=gnu99 #-m32
+EMU_CFLAGS=$(CFLAGS) -Isrc -ffreestanding -fno-pic -mcmodel=large
 
 EMU_TARGETS=minemu
 EMU_OBJECTS=$(filter-out $(EMU_EXCLUDE), $(patsubst %.c, %.o, $(wildcard src/*.c)))
@@ -117,8 +118,8 @@ src/jit_fragment_asm.S: src/asm_consts_gen.h
 src/asm_consts_gen.h: gen/gen_asm_consts_gen_h
 	$(SILENT)gen/gen_asm_consts_gen_h > $@
 
-gen/gen_asm_consts_gen_h: gen/gen_asm_consts_gen_h.c
-	$(LINK) -o $@ $^ $(EMU_CFLAGS) $(LDFLAGS) -lpthread
+#gen/gen_asm_consts_gen_h: gen/gen_asm_consts_gen_h.c
+#	$(LINK) -o $@ $^ $(EMU_CFLAGS) $(LDFLAGS) -lpthread
 
 test/testcases/killthread: test/testcases/killthread.o
 	$(LINK) -o $@ $^ $(LDFLAGS) -lpthread
@@ -137,6 +138,9 @@ test/testcases/intint: test/testcases/intint.o
 
 test/emu/%: test/emu/%.o
 	$(LINK) -o $@ $^ $(LDFLAGS)
+
+gen/%: gen/%.c depend
+	$(CC) $(CFLAGS) -Isrc/ -o $@ $<
 
 minemu: src/mm.ld src/minemu.ld $(EMU_OBJECTS) $(EMU_ASM_OBJECTS)
 	$(EMU_LINK) $(EMU_LDFLAGS) -o $@ -T src/minemu.ld $(EMU_OBJECTS) $(EMU_ASM_OBJECTS)

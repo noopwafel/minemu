@@ -160,7 +160,7 @@ void do_taint_dump(long *regs)
 
 	fd_printf(fd, "jump address:\n");
 
-	hexdump_taint(fd, &get_thread_ctx()->user_eip, 4,
+	hexdump_taint(fd, &get_thread_ctx()->user_rip, 4,
 	              (unsigned char *)&get_thread_ctx()->ijmp_taint, 0,0, NULL);
 
 	fd_printf(fd, "registers:\n");

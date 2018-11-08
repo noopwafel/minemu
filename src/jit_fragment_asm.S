@@ -23,37 +23,38 @@
 .type jit_fragment_run, @function
 jit_fragment_run:
 incl %fs:CTX__JIT_FRAGMENT_RUNNING
-movl  4(%esp), %eax                  # (struct sigcontext *)%eax
-pusha
+movq  4(%rsp), %rax                  # (struct sigcontext *)%rax
+#pusha # FIXME
 pushf
-push %eax                            # (struct sigcontext *)%eax
-movl 0x38(%eax), %edx                # (struct sigcontext *)%eax->eip
-movl %edx, %fs:CTX__JIT_FRAGMENT_ENTRY
-movl 0x1C(%eax), %ebp
-mov %esp, %fs:CTX__JIT_FRAGMENT_SAVED_ESP
+push %rax                            # (struct sigcontext *)%rax
+# FIXME FIXME bad offsets (below too, much FIXME)
+movq 0x38(%rax), %rdx                # (struct sigcontext *)%rax->eip
+movq %rdx, %fs:CTX__JIT_FRAGMENT_ENTRY
+movq 0x1C(%rax), %rbp
+mov %rsp, %fs:CTX__JIT_FRAGMENT_SAVED_ESP
 
-# %eax points to a struct sigcontext
+# %rax points to a struct sigcontext
 # %esp from sigcontext is ignored, %esp is set to %ebp
 # %eip from sigcontext is ignored, we'll jump to the value in jit_eip
 
-push 0x40(%eax)
+push 0x40(%rax)
 popf
-movl %ebp, %esp
+movq %rbp, %rsp
 
-movl 0x10(%eax), %edi
-movl 0x14(%eax), %esi
-movl 0x18(%eax), %ebp
-#ignored:  movl 0x1C(%eax), %esp
-movl 0x20(%eax), %ebx
-movl 0x24(%eax), %edx
-movl 0x28(%eax), %ecx
+movq 0x10(%rax), %rdi
+movq 0x14(%rax), %rsi
+movq 0x18(%rax), %rbp
+#ignored:  movl 0x1C(%rax), %esp
+movq 0x20(%rax), %rbx
+movq 0x24(%rax), %rdx
+movq 0x28(%rax), %rcx
 
 # RESTORE SHIELD
-mov 0x08(%eax), %es
-mov 0x48(%eax), %ss
-mov 0x0C(%eax), %ds
+mov 0x08(%rax), %es
+mov 0x48(%rax), %ss
+mov 0x0C(%rax), %ds
 
-movl %cs:0x2C(%eax), %eax
+movq %cs:0x2C(%rax), %rax
 
 jmp *%fs:CTX__JIT_FRAGMENT_ENTRY
 
@@ -63,38 +64,38 @@ jit_fragment_exit:
 
 SHIELDS_DOWN
 
-xchg %fs:CTX__JIT_FRAGMENT_SAVED_ESP, %esp
+xchg %fs:CTX__JIT_FRAGMENT_SAVED_ESP, %rsp
 
-xchg %eax, (%esp)                    # (struct sigcontext *)%eax / user %eax
+xchg %rax, (%rsp)                    # (struct sigcontext *)%rax / user %rax
 pushf
 
-mov %fs, 0x04(%eax)
-mov %gs, 0x00(%eax)
+mov %fs, 0x04(%rax)
+mov %gs, 0x00(%rax)
 
 # restore sigcontext
-movl %edi, 0x10(%eax)
-movl %esi, 0x14(%eax)
-movl %ebp, 0x18(%eax)
-movl %fs:CTX__JIT_FRAGMENT_SAVED_ESP, %ebp
-movl %ebp, 0x1C(%eax)                # (struct sigcontext *)%eax->esp
-movl %ebp, 0x44(%eax)                # (struct sigcontext *)%eax->esp@sig
-movl %ebx, 0x20(%eax)
-movl %edx, 0x24(%eax)
-movl %ecx, 0x28(%eax)
-pop %edx                             # flags
-movl %edx, 0x40(%eax)
-pop %edx                             # user %eax
-movl %edx, 0x2C(%eax)
-movl %fs:CTX__JIT_EIP, %ebp          # %eip
-movl %ebp, 0x38(%eax)                # (struct sigcontext *)%eax->eip
+movq %rdi, 0x10(%rax)
+movq %rsi, 0x14(%rax)
+movq %rbp, 0x18(%rax)
+movq %fs:CTX__JIT_FRAGMENT_SAVED_ESP, %rbp
+movq %rbp, 0x1C(%rax)                # (struct sigcontext *)%rax->esp
+movq %rbp, 0x44(%rax)                # (struct sigcontext *)%rax->esp@sig
+movq %rbx, 0x20(%rax)
+movq %rdx, 0x24(%rax)
+movq %rcx, 0x28(%rax)
+pop %rdx                             # flags
+movq %rdx, 0x40(%rax)
+pop %rdx                             # user %rax
+movq %rdx, 0x2C(%rax)
+movq %fs:CTX__JIT_EIP, %rbp          # %eip
+movq %rbp, 0x38(%rax)                # (struct sigcontext *)%rax->eip
 
-movl shield_segment, %ecx
-movl %ecx, 0x08(%eax)      # %es
-movl %ecx, 0x0C(%eax)      # %ds
-movl %ecx, 0x48(%eax)      # %ss
+movabs $shield_segment, %rcx
+movq %rcx, 0x08(%rax)      # %es
+movq %rcx, 0x0C(%rax)      # %ds
+movq %rcx, 0x48(%rax)      # %ss
 
 popf
-popa
+#popa # FIXME
 decl %fs:CTX__JIT_FRAGMENT_RUNNING
 ret
 

@@ -109,7 +109,7 @@ static long get_stack_random_shift(long *auxv)
 
 static int alloc_user_stack(elf_prog_t *prog, int prot)
 {
-	long err = do_mmap2(prog->task_size-prog->stack_size, prog->stack_size,prot,
+	long err = do_mmap(prog->task_size-prog->stack_size, prog->stack_size,prot,
 	                    MAP_PRIVATE|MAP_FIXED|MAP_ANONYMOUS, -1, 0);
 
 	if (err & PG_MASK)
@@ -187,7 +187,7 @@ static long zerofill(unsigned long start, unsigned long end, int prot)
 	if (prot & PROT_WRITE)
 		memset((void *)start, 0, padd_len);
 
-	return do_mmap2(pg_start, pg_end-pg_start, prot,
+	return do_mmap(pg_start, pg_end-pg_start, prot,
 	                MAP_PRIVATE|MAP_FIXED|MAP_ANONYMOUS, -1, 0);
 }
 
@@ -213,7 +213,7 @@ int open_exec(const char *filename)
 	return fd;
 }
 
-static int read_elf_header(int fd, Elf32_Ehdr *hdr)
+static int read_elf_header(int fd, Elf64_Ehdr *hdr)
 {
 	ssize_t sz = read_at(fd, 0, hdr, sizeof(*hdr));
 
@@ -226,9 +226,8 @@ static int read_elf_header(int fd, Elf32_Ehdr *hdr)
 	if (  (memcmp(&hdr[0], ELFMAG, SELFMAG) != 0) ||
 	     ((hdr->e_type != ET_EXEC) &&
 		  (hdr->e_type != ET_DYN)) ||
-	     ((hdr->e_machine != EM_386) &&
-		  (hdr->e_machine != 6 /* EM_486 */)) ||
-	      (hdr->e_phentsize != sizeof(Elf32_Phdr)) ||
+	      (hdr->e_machine != EM_X86_64) ||
+	      (hdr->e_phentsize != sizeof(Elf64_Phdr)) ||
 	      (hdr->e_phnum < 1) ||
 	      (hdr->e_phentsize*hdr->e_phnum > 65536) )
 		return -ENOEXEC;
@@ -239,7 +238,7 @@ static int read_elf_header(int fd, Elf32_Ehdr *hdr)
 static int find_interp_name(elf_bin_t *bin, char *buf, unsigned long max_size)
 {
 	long i;
-	Elf32_Phdr *p;
+	Elf64_Phdr *p;
 
 	for (i=0; i<bin->hdr.e_phnum; i++) 
 	{
@@ -281,11 +280,11 @@ int open_elf(const char *filename, elf_bin_t *bin)
 	return 0;
 }
 
-static Elf32_Phdr *mapped_phdr(elf_bin_t *bin)
+static Elf64_Phdr *mapped_phdr(elf_bin_t *bin)
 {
 	int i;
 	unsigned long offset;
-	Elf32_Phdr *p;
+	Elf64_Phdr *p;
 
 	for (i=0; i<bin->hdr.e_phnum; i++) 
 	{
@@ -295,7 +294,7 @@ static Elf32_Phdr *mapped_phdr(elf_bin_t *bin)
 		if ( (p->p_type == PT_LOAD) &&
 		     (p->p_offset <= offset) &&
 		     (p->p_offset+p->p_filesz > offset) )
-			return (Elf32_Phdr *)(p->p_vaddr - p->p_offset + bin->base + offset);
+			return (Elf64_Phdr *)(p->p_vaddr - p->p_offset + bin->base + offset);
 	}
 
 	return NULL;
@@ -350,7 +349,7 @@ static unsigned long get_mmap_base(elf_bin_t *elf)
 	if (mmap_min > mmap_max)
 		mmap_min = mmap_max;
 
-	addr = do_mmap2(mmap_min, mmap_max-mmap_min, PROT_NONE,
+	addr = do_mmap(mmap_min, mmap_max-mmap_min, PROT_NONE,
 	                MAP_PRIVATE|MAP_ANONYMOUS, -1, 0);
 
 	if (addr & PG_MASK) /* not on page boundary -> error code */
@@ -361,7 +360,7 @@ static unsigned long get_mmap_base(elf_bin_t *elf)
 	return addr-mmap_min;
 }
 
-static long mmap_prog_section(elf_bin_t *elf, Elf32_Phdr *p)
+static long mmap_prog_section(elf_bin_t *elf, Elf64_Phdr *p)
 {
 	unsigned long base = elf->base, brk_, bss, addr, pg_off, size;
 	int prot = 0;
@@ -383,7 +382,7 @@ static long mmap_prog_section(elf_bin_t *elf, Elf32_Phdr *p)
 	if ( ((p->p_vaddr-p->p_offset) & PG_MASK) || (bss > brk_) )
 		return -1;
 
-	addr = do_mmap2(addr, size, prot, MAP_PRIVATE|MAP_FIXED, elf->fd, pg_off);
+	addr = do_mmap(addr, size, prot, MAP_PRIVATE|MAP_FIXED, elf->fd, pg_off);
 
 	if (addr & PG_MASK) /* not on page boundary -> error code */
 		return addr;
@@ -438,7 +437,7 @@ static int try_load_elf(elf_prog_t *prog, long bailout)
 	if ( (err = open_elf(prog->filename, bin)) < 0 )
 		return err;
 
-	Elf32_Phdr phdr_bin_tmp[bin->hdr.e_phnum];
+	Elf64_Phdr phdr_bin_tmp[bin->hdr.e_phnum];
 	bin->phdr = phdr_bin_tmp; /* point to mmapped region later if any */
 
 	if (read_at(bin->fd, bin->hdr.e_phoff, bin->phdr,
@@ -456,7 +455,7 @@ static int try_load_elf(elf_prog_t *prog, long bailout)
 	if ( has_interp && (err = open_elf(i_filename, interp)) < 0)
 		return err;
 
-	Elf32_Phdr phdr_interp_tmp[interp->hdr.e_phnum];
+	Elf64_Phdr phdr_interp_tmp[interp->hdr.e_phnum];
 
 	if ( has_interp )
 	{

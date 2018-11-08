@@ -28,7 +28,11 @@
 #define KERNEL_NSIG (64)
 typedef struct
 {
+#ifndef __x86_64__
 	unsigned long bitmask[KERNEL_NSIG/8/sizeof(long)];
+#else
+	unsigned long bitmask[KERNEL_NSIG/64];
+#endif
 
 } kernel_sigset_t;
 
@@ -63,7 +67,11 @@ struct kernel_sigframe {
     int sig;
     struct sigcontext sc;
     struct _fpstate fpstate_unused;
+#ifndef __x86_64__
     unsigned long extramask[KERNEL_NSIG/8/sizeof(long)-1];
+#else
+    unsigned long extramask[KERNEL_NSIG/64];
+#endif
     char retcode[8];
 	/* fpstate */
 };

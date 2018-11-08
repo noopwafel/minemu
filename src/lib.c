@@ -323,7 +323,7 @@ char *__strcat_chk(char *dest, const char *src, size_t dest_size)
 char *numcat(char *dest, long l)
 {
 	char *p=dest;
-	unsigned long u, dec=1000000000UL;
+	unsigned long u, dec=1000000000UL; // FIXME
 
 	while (*p) p++;
 

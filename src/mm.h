@@ -66,7 +66,7 @@ void init_minemu_mem(long auxv[], char *envp[]);
 
 unsigned long set_brk_min(unsigned long brk);
 
-unsigned long do_mmap2(unsigned long addr, size_t length, int prot,
+unsigned long do_mmap(unsigned long addr, size_t length, int prot,
                        int flags, int fd, off_t pgoffset);
 
 unsigned long user_brk(unsigned long brk);
@@ -83,8 +83,13 @@ struct kernel_mmap_args
 
 unsigned long user_old_mmap(struct kernel_mmap_args *a);
 
+#ifndef __x86_64__
 unsigned long user_mmap2(unsigned long addr, size_t length, int prot,
                          int flags, int fd, off_t pgoffset);
+#else
+unsigned long user_mmap(unsigned long addr, size_t length, int prot,
+                         int flags, int fd, off_t pgoffset);
+#endif
 
 unsigned long user_munmap(unsigned long addr, size_t length);
 

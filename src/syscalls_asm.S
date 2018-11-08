@@ -17,6 +17,24 @@
 
 #include "asm_consts_gen.h"
 
+#define DO_SYSCALL_SYSCALL \
+push %rcx ;\
+push %r11 ;\
+syscall ;\
+pop %r11 ;\
+pop %rcx
+
+# FIXME: these
+
+#define DO_SYSCALL_INTR_PRE_SYSCALL \
+syscall
+
+#define DO_SYSCALL_INTR_SYSCALL \
+syscall
+
+#define DO_SYSCALL_INTR_RESTARTSYS_SYSCALL \
+syscall
+
 .text
 
 # Sysenter did not do much for performance.
@@ -25,169 +43,174 @@
 
 #define DO_SYSCALL_SYSENTER \
 push $1f ;\
-push %ecx ;\
-push %edx ;\
-push %ebp ;\
-movl %esp, %ebp ;\
+push %rcx ;\
+push %rdx ;\
+push %rbp ;\
+movq %rsp, %rbp ;\
 sysenter ;\
 1:
 
 #define DO_SYSCALL_INTR_PRE_SYSENTER \
 push $1f ;\
-push %ecx ;\
-push %edx ;\
-push %ebp ;\
-movl %esp, %ebp
+push %rcx ;\
+push %rdx ;\
+push %rbp ;\
+movq %rsp, %rbp
 
 #define DO_SYSCALL_INTR_SYSENTER \
 sysenter
 
 #define DO_SYSCALL_INTR_RESTARTSYS_SYSENTER \
-movl %ebp, %esp ;\
-pop %ebp ;\
-pop %edx ;\
-pop %ecx ;\
-lea 4(%esp), %esp ;\
+movq %rbp, %rsp ;\
+pop %rbp ;\
+pop %rdx ;\
+pop %rcx ;\
+lea 8(%rsp), %rsp ;\
 1:
 
-#define DO_SYSCALL_INT80 int $0x80
-#define DO_SYSCALL_INTR_INT80 int $0x80
-#define DO_SYSCALL_INTR_PRE_INT80 ;
-#define DO_SYSCALL_INTR_RESTARTSYS_INT80 ;
+# # define DO_SYSCALL_INT80 int $0x80
+# #define DO_SYSCALL_INTR_INT80 int $0x80
+# #define DO_SYSCALL_INTR_PRE_INT80 ;
+# #define DO_SYSCALL_INTR_RESTARTSYS_INT80 ;
 
-#define DO_SYSCALL                  DO_SYSCALL_INT80
-#define DO_SYSCALL_INTR             DO_SYSCALL_INTR_INT80
-#define DO_SYSCALL_INTR_PRE         DO_SYSCALL_INTR_PRE_INT80
-#define DO_SYSCALL_INTR_RESTARTSYS  DO_SYSCALL_INTR_RESTARTSYS_INT80
+# #define DO_SYSCALL                  DO_SYSCALL_INT80
+# #define DO_SYSCALL_INTR             DO_SYSCALL_INTR_INT80
+# #define DO_SYSCALL_INTR_PRE         DO_SYSCALL_INTR_PRE_INT80
+# #define DO_SYSCALL_INTR_RESTARTSYS  DO_SYSCALL_INTR_RESTARTSYS_INT80
+
+#define DO_SYSCALL DO_SYSCALL_SYSCALL
+#define DO_SYSCALL_INTR DO_SYSCALL_INTR_SYSCALL
+#define DO_SYSCALL_INTR_PRE DO_SYSCALL_INTR_PRE_SYSCALL
+#define DO_SYSCALL_INTR_RESTARTSYS DO_SYSCALL_INTR_RESTARTSYS_SYSCALL
 
 .global syscall0
 .type syscall0, @function
 syscall0:
-push %ebp
-movl %esp, %ebp
-movl  8(%ebp),%eax
+movq %rdi, %rax
 DO_SYSCALL
-pop %ebp
 ret
 
 .global syscall1
 .type syscall1, @function
 syscall1:
-push %ebp
-movl %esp, %ebp
-push %ebx
-movl  8(%ebp),%eax
-movl 12(%ebp),%ebx
+push %rdi
+movq %rdi, %rax
+movq %rsi, %rdi
 DO_SYSCALL
-pop %ebx
-pop %ebp
+pop %rdi
 ret
 
 .global syscall2
 .type syscall2, @function
 syscall2:
-push %ebp
-movl %esp, %ebp
-push %ebx
-movl  8(%ebp),%eax
-movl 12(%ebp),%ebx
-movl 16(%ebp),%ecx
+push %rdi
+push %rsi
+movq %rdi, %rax
+movq %rsi, %rdi
+movq %rdx, %rsi
 DO_SYSCALL
-pop %ebx
-pop %ebp
+pop %rsi
+pop %rdi
 ret
 
 .global syscall3
 .type syscall3, @function
 syscall3:
-push %ebp
-movl %esp, %ebp
-push %ebx
-movl  8(%ebp),%eax
-movl 12(%ebp),%ebx
-movl 16(%ebp),%ecx
-movl 20(%ebp),%edx
+push %rdi
+push %rsi
+push %rdx
+movq %rdi, %rax
+movq %rsi, %rdi
+movq %rdx, %rsi
+movq %rcx, %rdx
 DO_SYSCALL
-pop %ebx
-pop %ebp
+pop %rdx
+pop %rsi
+pop %rdi
 ret
 
 .global syscall4
 .type syscall4, @function
 syscall4:
-push %ebp
-movl %esp, %ebp
-push %ebx
-push %esi
-movl  8(%ebp),%eax
-movl 12(%ebp),%ebx
-movl 16(%ebp),%ecx
-movl 20(%ebp),%edx
-movl 24(%ebp),%esi
+push %rdi
+push %rsi
+push %rdx
+push %r10
+movq %rdi, %rax
+movq %rsi, %rdi
+movq %rdx, %rsi
+movq %rcx, %rdx
+movq %r8, %r10
 DO_SYSCALL
-pop %esi
-pop %ebx
-pop %ebp
+pop %r10
+pop %rdx
+pop %rsi
+pop %rdi
 ret
 
 .global syscall5
 .type syscall5, @function
 syscall5:
-push %ebp
-movl %esp, %ebp
-push %ebx
-push %esi
-push %edi
-movl  8(%ebp),%eax
-movl 12(%ebp),%ebx
-movl 16(%ebp),%ecx
-movl 20(%ebp),%edx
-movl 24(%ebp),%esi
-movl 28(%ebp),%edi
+push %rdi
+push %rsi
+push %rdx
+push %r10
+push %r8
+movq %rdi, %rax
+movq %rsi, %rdi
+movq %rdx, %rsi
+movq %rcx, %rdx
+movq %r8, %r10
+movq %r9, %r8
 DO_SYSCALL
-pop %edi
-pop %esi
-pop %ebx
-pop %ebp
+pop %r8
+pop %r10
+pop %rdx
+pop %rsi
+pop %rdi
 ret
 
 .global syscall6
 .type syscall6, @function
 syscall6:
-push %ebp
-movl %esp, %ebp
-push %ebx
-push %esi
-push %edi
-movl  8(%ebp),%eax
-movl 12(%ebp),%ebx
-movl 16(%ebp),%ecx
-movl 20(%ebp),%edx
-movl 24(%ebp),%esi
-movl 28(%ebp),%edi
-movl 32(%ebp),%ebp
+push %rdi
+push %rsi
+push %rdx
+push %r10
+push %r8
+push %r9
+movq %rdi, %rax
+movq %rsi, %rdi
+movq %rdx, %rsi
+movq %rcx, %rdx
+movq %r8, %r10
+movq %r9, %r8
+movq 0x38(%rsp), %r9
 DO_SYSCALL
-pop %edi
-pop %esi
-pop %ebx
-pop %ebp
+pop %r9
+pop %r8
+pop %r10
+pop %rdx
+pop %rsi
+pop %rdi
 ret
 
+# FIXME
 .global syscall_intr
 .type syscall_intr, @function
 syscall_intr:
-push %ebp
-movl %esp, %ebp
-push %ebx
-push %esi
-push %edi
-movl  8(%ebp),%eax
-movl 12(%ebp),%ebx
-movl 16(%ebp),%ecx
-movl 20(%ebp),%edx
-movl 24(%ebp),%esi
-movl 28(%ebp),%edi
-movl 32(%ebp),%ebp
+push %rbp
+movq %rsp, %rbp
+push %rbx
+push %rsi
+push %rdi
+movq 0x10(%rbp),%rax
+movq 0x18(%rbp),%rbx
+movq 0x20(%rbp),%rcx
+movq 0x28(%rbp),%rdx
+movq 0x30(%rbp),%rsi
+movq 0x38(%rbp),%rdi
+movq 0x40(%rbp),%rbp
 DO_SYSCALL_INTR_PRE
 .global syscall_intr_critical_start
 syscall_intr_critical_start:
@@ -199,9 +222,9 @@ syscall_intr_critical_end:
 DO_SYSCALL_INTR
 return:
 DO_SYSCALL_INTR_RESTARTSYS
-pop %edi
-pop %esi
-pop %ebx
-pop %ebp
+pop %rdi
+pop %rsi
+pop %rbx
+pop %rbp
 ret
 

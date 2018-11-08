@@ -24,21 +24,21 @@
 .global mutex_lock # ( long *lock_addr )
 .type mutex_lock, @function
 mutex_lock:
-push %ebx
+push %rbx
 mutex_lock_retry:
-movl $1, %edx
-xor %ecx, %ecx
-movl 8(%esp), %ebx
+movq $1, %rdx
+xor %rcx, %rcx
+movq %rdi, %rbx
 spin:
-movl $0, %eax
-lock cmpxchg %edx, (%ebx)
-loopnew spin
+movq $0, %rax
+lock cmpxchg %rdx, (%rbx)
+loopneq spin
 jne 1f
-pop %ebx
+pop %rbx
 mfence
 ret
 1:
-movl $(__NR_sched_yield), %eax
+movq $(__NR_sched_yield), %rax
 int $0x80
 jmp mutex_lock_retry
 
@@ -49,74 +49,73 @@ mutex_init:
 .global mutex_unlock # ( long *lock_addr )
 .type mutex_unlock, @function
 mutex_unlock:
-movl 4(%esp), %edx
 mfence
-movl $0, (%edx)
+movq $0, (%rdi)
 ret
 
 .global mutex_unlock_exit # ( long status, long *lock_addr )
 .type mutex_unlock_exit, @function
 mutex_unlock_exit:
-movl 8(%esp), %edx
-movl 4(%esp), %ebx
-movl $(__NR_exit), %eax
+movq 16(%rsp), %rdx
+movq 8(%rsp), %rbx
+movq $(__NR_exit), %rax
 mfence
-movl $0, (%edx)
+movq $0, (%rdx)
 int $0x80
 ud2
 
 .global mutex_unlock_execve_or_die # ( char *filename, char *argv[], char *envp[], long *lock_addr )
 .type mutex_unlock_execve_or_die, @function
 mutex_unlock_execve_or_die:
-movl 0x10(%esp), %esi
-movl 0x0C(%esp), %edx
-movl 0x08(%esp), %ecx
-movl 0x04(%esp), %ebx
-movl $(__NR_execve), %eax
+movq 0x20(%esp), %rsi
+movq 0x18(%esp), %rdx
+movq 0x10(%esp), %rcx
+movq 0x08(%esp), %rbx
+movq $(__NR_execve), %rax
 mfence
-movl $0, (%esi)
+movq $0, (%rsi)
 int $0x80
-movl $(__NR_gettid), %eax
+movq $(__NR_gettid), %rax
 int $0x80
-movl %eax, %ebx
-movl %eax, %ecx
-movl $(SIGKILL), %edx
-movl $(__NR_tgkill), %eax
+movq %rax, %rbx
+movq %rax, %rcx
+movq $(SIGKILL), %rdx
+movq $(__NR_tgkill), %rax
 int $0x80
 ud2
 
 .global atomic_clear_8bytes
 .type atomic_clear_8bytes, @function
 atomic_clear_8bytes:
-push %edi
-movl 0x8(%esp), %edi
-movl 0xC(%esp), %eax
-movl 4(%eax), %edx
-movl  (%eax), %eax
-push %ebx
-xor %ebx, %ebx
-xor %ecx, %ecx
-lock cmpxchg8b (%edi)
-pop %ebx
-pop %edi
+push %rdi
+movq 0x18(%rsp), %rdi
+movq 0x10(%rsp), %rax
+movq 0x8(%rax), %rdx
+movq  (%rax), %rax
+push %rbx
+xor %rbx, %rbx
+xor %rcx, %rcx
+lock cmpxchg8b (%rdi)
+pop %rbx
+pop %rdi
 ret
 
 # This wil break HARD with -fomit-frame-pointers
 #
 #
 patch_base_pointers: # ( difference )
-test %ebp, %ebp
+test %rbp, %rbp
 jz done
-addl 4(%esp), %ebp
-movl %ebp, %edx
+addq 8(%rsp), %rbp
+movq %rbp, %rdx
 
 1:
-movl (%edx), %eax
-test %eax, %eax
+movq (%rdx), %rax
+test %rax, %rax
 jz done
-addl 4(%esp), %eax
-movl %eax, (%edx)
-movl %eax, %edx
+addq 8(%rsp), %rax
+movq %rax, (%rdx)
+movq %rax, %rdx
 jmp 1b
 
 done:
@@ -126,46 +125,46 @@ ret
 .global clone_relocate_stack # ( flags, sp, &parent_tid, dummy, &child_tid, stack_diff )
 .type clone_relocate_stack, @function
 clone_relocate_stack:
-push %ebp
-movl %esp, %ebp
-push %ebx
-push %esi
-push %edi
+push %rbp
+movq %rsp, %rbp
+push %rbx
+push %rsi
+push %rdi
 
-movl 0x1c(%ebp), %eax
-push %eax                  # stack_diff (for patch_base_pointers)
+movq 0x38(%rbp), %rax
+push %rax                  # stack_diff (for patch_base_pointers)
 
-movl %esp, %ebx            # src
-addl %esp, %eax            # dest ( = stack_diff + src )
+movq %rsp, %rbx            # src
+addq %rsp, %rax            # dest ( = stack_diff + src )
 
-movl %fs:CTX__MY_ADDR, %ecx
-addl $CTX__SIZE, %ecx
-subl %esp, %ecx            # size
+movq %fs:CTX__MY_ADDR, %rcx
+addq $CTX__SIZE, %rcx
+subq %rsp, %rcx            # size
 
-push %ecx
-push %ebx
-push %eax
+push %rcx
+push %rbx
+push %rax
 call memcpy
-lea 0x0c(%esp), %esp
+lea 0x18(%rsp), %rsp
 
-movl $(__NR_clone), %eax
-movl 0x08(%ebp), %ebx                          # flags
-movl 0x1c(%ebp), %ecx                          # child_sp = stack_diff
-addl      %esp , %ecx                          # child_sp = stack_diff + sp
-movl 0x10(%ebp), %edx                          # &parent_tid
-movl 0x14(%ebp), %esi
-movl 0x18(%ebp), %edi                          # &child_tid
+movq $(__NR_clone), %rax
+movq 0x10(%rbp), %rbx                          # flags
+movq 0x38(%rbp), %rcx                          # child_sp = stack_diff
+addq      %rsp , %rcx                          # child_sp = stack_diff + sp
+movq 0x20(%rbp), %rdx                          # &parent_tid
+movq 0x28(%rbp), %rsi
+movq 0x30(%rbp), %rdi                          # &child_tid
 int $0x80
-cmp %ecx, %esp
+cmp %rcx, %rsp
 jne 1f
-mov %eax, %ebx
+mov %rax, %rbx
 call patch_base_pointers # ( stack_diff )
-mov %ebx, %eax
+mov %rbx, %rax
 
 1:
-lea 4(%esp), %esp          # discard stack_diff
-pop %edi
-pop %esi
-pop %ebx
-pop %ebp
+lea 8(%rsp), %rsp          # discard stack_diff
+pop %rdi
+pop %rsi
+pop %rbx
+pop %rbp
 ret

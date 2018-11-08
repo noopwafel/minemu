@@ -65,7 +65,7 @@ static void unshare_ctx(thread_ctx_t *c)
 
 static void init_thread_ctx(thread_ctx_t *local_ctx)
 {
-	long ret = sys_mmap2(local_ctx, sizeof(thread_ctx_t),
+	long ret = sys_mmap(local_ctx, sizeof(thread_ctx_t),
 	                     PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED|MAP_ANONYMOUS, -1, 0);
 
 	if (ret != (long)local_ctx)
@@ -78,7 +78,7 @@ static void init_thread_ctx(thread_ctx_t *local_ctx)
 	local_ctx->jit_fragment_exit_addr = jit_fragment_exit;
 
 	local_ctx->sigwrap_stack_top = &local_ctx->sigwrap_stack[sizeof(local_ctx->sigwrap_stack)/sizeof(long)-1];
-	local_ctx->scratch_stack_top = &local_ctx->user_esp;
+	local_ctx->scratch_stack_top = &local_ctx->user_rsp;
 
 	local_ctx->files = &files;
 	local_ctx->sighandler = &sighandler;
@@ -165,7 +165,7 @@ long user_clone(unsigned long flags, unsigned long sp, void *parent_tid, void *t
 	}
 
 	if (ret == 0 && sp)
-		child_ctx->user_esp = sp;
+		child_ctx->user_rsp = sp;
 
 	return ret;
 }

@@ -24,11 +24,11 @@
 .type do_sigreturn, @function
 
 load_sigframe:
-movl 4(%esp), %esp
-pop %eax
+movq 8(%rsp), %rsp
+pop %rax
 do_sigreturn:
-pop %eax
-movl $(__NR_sigreturn), %eax
+pop %rax
+#movq $(__NR_sigreturn), %rax # FIXME FIXME
 int $0x80
 ud2
 
@@ -39,10 +39,10 @@ ud2
 .type do_rt_sigreturn, @function
 
 load_rt_sigframe:
-movl 4(%esp), %esp
-pop %eax
+movq 8(%rsp), %rsp
+pop %rax
 do_rt_sigreturn:
-movl $(__NR_rt_sigreturn), %eax
+movq $(__NR_rt_sigreturn), %rax
 int $0x80
 ud2
 

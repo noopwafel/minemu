@@ -109,7 +109,7 @@ static void use_blocks(long i, long count)
 
 static void disuse_blocks(long i, long count)
 {
-	long ret = sys_mmap2(get_alloc_pointer(i), count*block_size,
+	long ret = sys_mmap(get_alloc_pointer(i), count*block_size,
 	   	                 PROT_NONE, MAP_PRIVATE|MAP_FIXED|MAP_ANONYMOUS, -1, 0);
 
 	if (ret & PG_MASK)

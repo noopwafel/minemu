@@ -33,9 +33,9 @@ int main(void)
 	printf("#define CTX__JIT_RETURN_ADDR (0x%lx)\n", (long)offsetof(thread_ctx_t, jit_return_addr));
 	printf("#define CTX__RUNTIME_IJMP_ADDR (0x%lx)\n", (long)offsetof(thread_ctx_t, runtime_ijmp_addr));
 	printf("#define CTX__SCRATCH_STACK_TOP (0x%lx)\n", (long)offsetof(thread_ctx_t, scratch_stack_top));
-	printf("#define CTX__USER_ESP (0x%lx)\n", (long)offsetof(thread_ctx_t, user_esp));
-	printf("#define CTX__USER_EIP (0x%lx)\n", (long)offsetof(thread_ctx_t, user_eip));
-	printf("#define CTX__JIT_EIP (0x%lx)\n", (long)offsetof(thread_ctx_t, jit_eip));
+	printf("#define CTX__USER_ESP (0x%lx)\n", (long)offsetof(thread_ctx_t, user_rsp));
+	printf("#define CTX__USER_EIP (0x%lx)\n", (long)offsetof(thread_ctx_t, user_rip));
+	printf("#define CTX__JIT_EIP (0x%lx)\n", (long)offsetof(thread_ctx_t, jit_rip));
 	printf("#define CTX__HOOK_FUNC (0x%lx)\n", (long)offsetof(thread_ctx_t, hook_func));
 	printf("#define CTX__JIT_FRAGMENT_RESTARTSYS (0x%lx)\n", (long)offsetof(thread_ctx_t, jit_fragment_restartsys));
 	printf("#define CTX__JIT_FRAGMENT_RUNNING (0x%lx)\n", (long)offsetof(thread_ctx_t, jit_fragment_running));

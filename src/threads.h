@@ -79,9 +79,9 @@ struct thread_ctx_s
 	long scratch_stack[0x2400 - 11 - sizeof(kernel_sigset_t)/sizeof(long)];
 
 /* this */
-	long user_esp; /* scratch_stack_top points here */
-	long user_eip;
-	long jit_eip;
+	long user_rsp; /* scratch_stack_top points here */
+	long user_rip;
+	long jit_rip;
 	long hook_func;
 
 	long jit_fragment_restartsys;

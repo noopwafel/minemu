@@ -23,6 +23,7 @@
 #define PREF_TLS_GDT_ENTRY (7)
 #define PREF_SHIELD_GDT_ENTRY (8)
 
+#ifndef __x86_64__
 #define SHIELDS_UP \
 	mov %cs:shield_segment, %ds ; \
 	mov %cs:shield_segment, %es ; \
@@ -32,6 +33,10 @@
 	mov %cs:data_segment, %ds ; \
 	mov %cs:data_segment, %es ; \
 	mov %cs:data_segment, %ss ;
+#else
+#define SHIELDS_UP
+#define SHIELDS_DOWN
+#endif
 
 #ifndef __ASSEMBLER__
 

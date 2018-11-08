@@ -40,7 +40,7 @@ static char *cache_dir = NULL;
 unsigned long fd_filesize(int fd)
 {
 	struct kernel_stat64 s;
-	if ( sys_fstat64(fd, &s) < 0 )
+	if ( sys_fstat(fd, &s) < 0 )
 		die("fd_filesize: sys_fstat64() failed");
 
 	return s.st_size;
@@ -112,7 +112,7 @@ int try_load_jit_cache(code_map_t *map)
 
 	unsigned long size = fd_filesize(fd);
 
-	char *addr = (char *)sys_mmap2(map->jit_addr, PAGE_NEXT(size),
+	char *addr = (char *)sys_mmap(map->jit_addr, PAGE_NEXT(size),
 	                               PROT_READ|PROT_EXEC, MAP_PRIVATE|MAP_FIXED,
 	                               fd, 0);
 

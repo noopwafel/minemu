@@ -62,9 +62,9 @@ void fake_proc_self_stat(long fd)
 	buf[0]='\0';
 	numcat(buf, stack_bottom);
 	strcat(buf, " ");
-	numcat(buf, ctx->user_esp);
+	numcat(buf, ctx->user_rsp);
 	strcat(buf, " ");
-	numcat(buf, ctx->user_eip);
+	numcat(buf, ctx->user_rip);
 	sys_write(filedes[1], buf, strlen(buf));
 	sys_write(filedes[1], p, buf+n_read-p);
 
