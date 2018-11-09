@@ -94,6 +94,46 @@ movabs sysenter_reentry, %rax
 SHIELDS_UP
 jmp *%fs:CTX__RUNTIME_IJMP_ADDR
 
+.global linux_syscall_emu
+.type linux_syscall_emu, @function
+linux_syscall_emu:
+SHIELDS_DOWN
+movq (%rsp), %rbp      # restore %ebp, (is used to store %esp during sysenter.)
+mov %rsp, %fs:CTX__USER_ESP
+mov %fs:CTX__SCRATCH_STACK_TOP, %rsp
+push %rdi
+push %rsi
+push %rdx
+push %r10
+push %r8
+push %r9
+push %r9
+# note: userspace rcx <-> kernelspace r10, so we can overwrite r10
+movq %r8, %r9
+movq %r10, %r8
+mov %fs:CTX__USER_ESP, %r10
+pushq 8(%r10)
+movq %rdx, %rcx
+movq %rsi, %rdx
+movq %rdi, %rsi
+movq %rax, %rdi
+call runtime_syscall
+pop %r9 # junk
+pop %r9 # junk
+pop %r9
+pop %r8
+pop %r10
+pop %rdx
+pop %rsi
+pop %rdi
+pop %rsp
+pinsrq $0, %rcx, %xmm4
+pinsrq $0, %rax, %xmm3
+mov $0x0,%rcx
+movq %fs:CTX__USER_EIP, %rax
+SHIELDS_UP
+jmp *%fs:CTX__RUNTIME_IJMP_ADDR
+
 .global state_restore
 .type state_restore, @function
 state_restore:

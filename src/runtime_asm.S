@@ -223,12 +223,13 @@ call runtime_jit     # (char *addr);
 
 lookup_hit:
 movq %rax, %fs:CTX__JIT_EIP
-pop %rdi
+pop %rdi # throw away
 pop %r11
 pop %r10
 pop %r9
 pop %r8
 popf
+pop %rdi
 pop %rsp
 SHIELDS_UP
 jmp *%fs:CTX__JIT_RETURN_ADDR
@@ -238,15 +239,17 @@ jmp *%fs:CTX__JIT_RETURN_ADDR
 #
 runtime_jit:
 
+push %rdi
 movabs $jit_lock, %rdi
 call mutex_lock
+pop %rdi
 
-movq 8(%rsp), %rax
+//movq 8(%rsp), %rax
 movq %rsp, %rdx                     # switch to jit stack
 movabs $minemu_stack_bottom, %rsp      #
 mov (%rsp), %rsp
 push %rdx # save old rsp
-mov %rax, %rdi                      # address to be translated
+//mov %rax, %rdi                      # address to be translated
 call jit
 pop %rsp                            # revert to scratch stack
 push %rax # save jit return value

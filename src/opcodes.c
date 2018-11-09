@@ -200,7 +200,7 @@ static int read_modrm(const char *addr, instr_t *instr, int max_len)
 
 int read_op(char *addr, instr_t *instr, int max_len)
 {
-	int ret, type, op=MAIN_OPTABLE;
+	int ret, type, op=MAIN_OPTABLE, rex;
 
 	*instr = (instr_t) { .addr=addr, .len=0 };
 
@@ -213,6 +213,12 @@ int read_op(char *addr, instr_t *instr, int max_len)
 		instr->p[type & PREFIX_MASK] = addr[instr->len];
 		instr->len++;
 	}
+
+	rex = (unsigned char)addr[instr->len];
+	if ((rex & 0x40) == 0x40)
+	{
+		instr->len++;
+	} else rex = 0;
 
 	for(;;)
 	{

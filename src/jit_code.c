@@ -251,6 +251,7 @@ union
 #define RF RETURN_FAR
 
 #define SE  SYSENTER
+#define SC  SYSCALL
 
 #define CX8 CMPXCHG8
 #define CXG CMPXCHG
@@ -331,7 +332,7 @@ const unsigned char jit_action[] =
 
 	[ESC_OPTABLE] =
 /*        ?0   ?1   ?2   ?3   ?4   ?5   ?6   ?7   ?8   ?9   ?A   ?B   ?C   ?D   ?E   ?F */
-/* 0? */ PRIV,PRIV,PRIV,PRIV,  C ,  U ,  C ,  U ,  C ,  C ,  C ,  U ,  C ,  C ,  C ,  C ,
+/* 0? */ PRIV,PRIV,PRIV,PRIV,  C , SC ,  C ,  U ,  C ,  C ,  C ,  U ,  C ,  C ,  C ,  C ,
 /* 1? */  MM , MM , MM , MM , MM , MM , MM , MM ,  C ,  C ,  C ,  C ,  C ,  C ,  C ,  C ,
 /* 2? */ PRIV,PRIV,PRIV,PRIV,  C ,  C ,  C ,  C , MM , MM , MM , MM , MM , MM , MM , MM ,
 /* 3? */ PRIV,TEAD,TEAD,TEAD, SE ,  C ,  C ,PRIV, BAD,  C , BAD,  C ,  C ,  C ,  C ,  C ,
@@ -557,6 +558,23 @@ static int generate_linux_sysenter(char *dest, trans_t *trans)
 
 	/* jump into runtime code */
 	len += jump_to(&dest[len], (void *)(long)linux_sysenter_emu);
+	*trans = (trans_t){ .len=len };
+	return len;
+}
+
+static int generate_linux_syscall(char *dest, instr_t *instr, trans_t *trans)
+{
+	int len = gen_code(
+		dest,
+
+		"66 0f ef ed"    /* clear ijmp taint register (pxor %xmm5,%xmm5 */
+		"64 48 C7 04 25 L L",     /* movq $post_addr, user_eip */
+
+		offsetof(thread_ctx_t, user_rip), &instr->addr[instr->len]
+	);
+
+	/* jump into runtime code */
+	len += jump_to(&dest[len], (void *)(long)linux_syscall_emu);
 	*trans = (trans_t){ .len=len };
 	return len;
 }
@@ -1103,6 +1121,8 @@ void translate_op(char *dest, instr_t *instr, trans_t *trans,
 	}
 	else if (action == SYSENTER)
 		generate_linux_sysenter(dest, trans);
+	else if (action == SYSCALL)
+		generate_linux_syscall(dest, instr, trans);
 	else if (action == CMPXCHG8)
 		taint_cmpxchg8(dest, instr, trans);
 	else if (action == CMPXCHG)

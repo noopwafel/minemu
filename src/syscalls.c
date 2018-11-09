@@ -187,6 +187,7 @@ long syscall_emu(long call, long arg1, long arg2, long arg3,
 				do_taint_dump(regs);
 			}
 			sys_exit_group(arg1);
+			break;
 		default:
 			die("unimplemented syscall");
 			break;

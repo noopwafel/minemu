@@ -57,12 +57,10 @@ ret
 .global mutex_unlock_exit # ( long status, long *lock_addr )
 .type mutex_unlock_exit, @function
 mutex_unlock_exit:
-movq 16(%rsp), %rdx
-movq 8(%rsp), %rbx
 movq $(__NR_exit), %rax
 mfence
-movq $0, (%rdx)
-int $0x80
+movq $0, (%rsi)
+syscall
 ud2
 
 .global mutex_unlock_execve_or_die # ( char *filename, char *argv[], char *envp[], long *lock_addr )
