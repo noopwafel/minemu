@@ -50,8 +50,8 @@ ret
 emu_start: # (long eip, long esp)
 movabs $minemu_stack_bottom, %rax
 movq %rsp, (%rax)   # save orig stack address for runtime_jit()
-movq 8(%rsp), %rax               # load user %eip from arg1
-movq 16(%rsp), %rsp               # load user's stack pointer from arg2
+movq %rdi, %rax               # load user %eip from arg1
+movq %rsi, %rsp               # load user's stack pointer from arg2
 xor %rcx, %rcx                   # clear registers and flags
 xor %rdx, %rdx
 xor %rbx, %rbx

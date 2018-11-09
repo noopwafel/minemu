@@ -25,15 +25,16 @@
 .type mutex_lock, @function
 mutex_lock:
 push %rbx
-mutex_lock_retry:
+#mutex_lock_retry:
 movq $1, %rdx
 xor %rcx, %rcx
 movq %rdi, %rbx
 spin:
 movq $0, %rax
 lock cmpxchg %rdx, (%rbx)
-loopneq spin
-jne 1f
+jnz spin
+#jne 1f # alyssa FIXME, yielding is sabotaged
+#jne mutex_lock_retry
 pop %rbx
 mfence
 ret

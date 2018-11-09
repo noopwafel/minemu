@@ -196,6 +196,7 @@ nop
 #
 # %eax:    address
 # %e[cd]x: clobbered
+# FIXME: for now alyssa just pushed r8-r11 below
 #
 cache_miss:
 mov %fs:CTX__FLAGS_TMP, %rax
@@ -203,20 +204,30 @@ sahf
 SHIELDS_DOWN
 mov %rsp, %fs:CTX__USER_ESP
 mov %fs:CTX__SCRATCH_STACK_TOP, %rsp
+push %rdi
 pushf
-push %rdx            # addr
-push %rdx            # addr
+push %r8
+push %r9
+push %r10
+push %r11
+mov %rdx, %rdi
+push %rdi
 call jit_lookup_addr # (char *addr);
-lea 8(%rsp), %rsp
 test %rax, %rax      # jit_addr or NULL
 jnz lookup_hit
 
 # the code we're looking for has not been translated yet
+pop %rdi
+push %rdi
 call runtime_jit     # (char *addr);
 
 lookup_hit:
-lea 8(%rsp), %rsp
 movq %rax, %fs:CTX__JIT_EIP
+pop %rdi
+pop %r11
+pop %r10
+pop %r9
+pop %r8
 popf
 pop %rsp
 SHIELDS_UP
@@ -227,28 +238,22 @@ jmp *%fs:CTX__JIT_RETURN_ADDR
 #
 runtime_jit:
 
-push %rax # alyssa
-movabs $jit_lock, %rax
-push %rax
+movabs $jit_lock, %rdi
 call mutex_lock
-addq $8, %rsp
-pop %rax # alyssa
 
 movq 8(%rsp), %rax
 movq %rsp, %rdx                     # switch to jit stack
 movabs $minemu_stack_bottom, %rsp      #
-push %rdx
-push %rax                           # address to be translated
+mov (%rsp), %rsp
+push %rdx # save old rsp
+mov %rax, %rdi                      # address to be translated
 call jit
-addq $8, %rsp
 pop %rsp                            # revert to scratch stack
-push %rax
+push %rax # save jit return value
 
-movabs $jit_lock, %rax
-push %rax
+movabs $jit_lock, %rdi
 call mutex_unlock
-addq $8, %rsp
 
-pop %rax
+pop %rax # restore jit return value
 ret
 

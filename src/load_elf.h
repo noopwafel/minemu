@@ -23,8 +23,8 @@
 
 typedef struct
 {
-	Elf32_Ehdr hdr;
-	Elf32_Phdr *phdr;
+	Elf64_Ehdr hdr;
+	Elf64_Phdr *phdr;
 	unsigned long base, bss, brk;
 	int fd;
 

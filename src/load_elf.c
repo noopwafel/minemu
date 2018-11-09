@@ -362,7 +362,7 @@ static unsigned long get_mmap_base(elf_bin_t *elf)
 
 static long mmap_prog_section(elf_bin_t *elf, Elf64_Phdr *p)
 {
-	unsigned long base = elf->base, brk_, bss, addr, pg_off, size;
+	unsigned long base = elf->base, brk_, bss, addr, /*pg_off,*/ size;
 	int prot = 0;
 
 	if (p->p_flags & PF_R)
@@ -374,7 +374,7 @@ static long mmap_prog_section(elf_bin_t *elf, Elf64_Phdr *p)
 
 	addr = PAGE_BASE(base+p->p_vaddr);
 	size = PAGE_NEXT(base+p->p_vaddr + p->p_filesz) - addr;
-	pg_off = p->p_offset/PG_SIZE;
+//	pg_off = p->p_offset/PG_SIZE;
 
 	bss = base + p->p_vaddr + p->p_filesz;
 	brk_ = base + p->p_vaddr + p->p_memsz;
@@ -382,7 +382,7 @@ static long mmap_prog_section(elf_bin_t *elf, Elf64_Phdr *p)
 	if ( ((p->p_vaddr-p->p_offset) & PG_MASK) || (bss > brk_) )
 		return -1;
 
-	addr = do_mmap(addr, size, prot, MAP_PRIVATE|MAP_FIXED, elf->fd, pg_off);
+	addr = do_mmap(addr, size, prot, MAP_PRIVATE|MAP_FIXED, elf->fd, /*pg_off*/ p->p_offset);
 
 	if (addr & PG_MASK) /* not on page boundary -> error code */
 		return addr;
