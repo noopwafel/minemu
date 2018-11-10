@@ -42,7 +42,7 @@ typedef struct
 {
 	char *addr;
 	unsigned short op;
-	unsigned char mrm, imm, len, p[5];
+	unsigned char mrm, imm, len, p[6];
 } instr_t;
 
 int read_op(char *addr, instr_t *instr, int max_len);

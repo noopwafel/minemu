@@ -38,6 +38,7 @@
 #define P2  (PREFIX|2)
 #define P3  (PREFIX|3)
 #define P4  (PREFIX|4)
+#define PR  (PREFIX|5) // REX
 #define PREFIX_MASK (7)
 
 #define O   (OP)
@@ -63,6 +64,13 @@
 #define MW (MODRM|IMMW)
 #define ML (MODRM|IMML)
 
+#define REX_W 8
+#define REX_R 4
+#define REX_X 2
+#define REX_B 1
+
+// TODO: for amd64, PR is added and 0x63 becomes valid, there are also many
+// invalid insts not set as invalid, to make future merge less painful
 static const unsigned char optable[] =
 {
 	[MAIN_OPTABLE] =
@@ -71,7 +79,7 @@ static const unsigned char optable[] =
 /* 1? */  M , M , M , M , OB, OW, O , O , M , M , M , M , OB, OW, O , O ,
 /* 2? */  M , M , M , M , OB, OW, P2, O , M , M , M , M , OB, OW, P2, O ,
 /* 3? */  M , M , M , M , OB, OW, P2, O , M , M , M , M , OB, OW, P2, O ,
-/* 4? */  O , O , O , O , O , O , O , O , O , O , O , O , O , O , O , O ,
+/* 4? */  PR, PR, PR, PR, PR, PR, PR, PR, PR, PR, PR, PR, PR, PR, PR, PR,
 /* 5? */  O , O , O , O , O , O , O , O , O , O , O , O , O , O , O , O ,
 /* 6? */  O , O , I , I , P2, P2, P3, P4, OW, MW, OB, MB, I , I , I , I ,
 /* 7? */  OB, OB, OB, OB, OB, OB, OB, OB, OB, OB, OB, OB, OB, OB, OB, OB,
@@ -200,7 +208,7 @@ static int read_modrm(const char *addr, instr_t *instr, int max_len)
 
 int read_op(char *addr, instr_t *instr, int max_len)
 {
-	int ret, type, op=MAIN_OPTABLE, rex;
+	int ret, type, op=MAIN_OPTABLE;
 
 	*instr = (instr_t) { .addr=addr, .len=0 };
 
@@ -213,12 +221,6 @@ int read_op(char *addr, instr_t *instr, int max_len)
 		instr->p[type & PREFIX_MASK] = addr[instr->len];
 		instr->len++;
 	}
-
-	rex = (unsigned char)addr[instr->len];
-	if ((rex & 0x40) == 0x40)
-	{
-		instr->len++;
-	} else rex = 0;
 
 	for(;;)
 	{
@@ -277,9 +279,12 @@ int read_op(char *addr, instr_t *instr, int max_len)
 
 	instr->imm = instr->len;
 
+	// FIXME: some instructions don't need REX to be 64-bit
 	if (type & IMMW)
 	{
-		if (instr->p[3] == 0x66)
+		if (instr->p[5] & REX_W)
+			instr->len += 8;
+		else if (instr->p[3] == 0x66)
 			instr->len += 2;
 		else
 			instr->len += 4;
@@ -288,9 +293,9 @@ int read_op(char *addr, instr_t *instr, int max_len)
 	if (type & IMMA)
 	{
 		if (instr->p[4] == 0x67)
-			instr->len += 2;
-		else
 			instr->len += 4;
+		else
+			instr->len += 8;
 	}
 
 	if (type & IMMS)
